@@ -1,0 +1,258 @@
+syntax = "proto3";
+
+package cities;
+option go_package = "github.com/cities/game/proto/cities";
+
+import "google/protobuf/timestamp.proto";
+
+// ─── Service ───────────────────────────────────────────────────────────────
+
+service CityCoordinator {
+  // Player joins the game, gets a city assigned
+  rpc RegisterPlayer(RegisterRequest) returns (RegisterResponse);
+
+  // Get current game state (all cities overview)
+  rpc GetGameState(GameStateRequest) returns (GameState);
+
+  // Mayor submits decision after a heartbeat
+  rpc SubmitDecision(MayorDecision) returns (DecisionAck);
+
+  // Place a trade order (buy/sell product with another city)
+  rpc PlaceTradeOrder(TradeOrderRequest) returns (TradeAck);
+
+  // Cancel a pending trade order
+  rpc CancelTradeOrder(CancelTradeRequest) returns (TradeAck);
+
+  // Stream: receive heartbeat proposals (server → client, real-time)
+  rpc StreamHeartbeats(StreamRequest) returns (stream Heartbeat);
+
+  // Stream: receive city state updates (server → client, after each heartbeat)
+  rpc StreamCityUpdates(StreamRequest) returns (stream CityUpdate);
+
+  // Stream: global world events (new cities, major events, etc.)
+  rpc StreamWorldEvents(StreamRequest) returns (stream WorldEvent);
+}
+
+// ─── Register ──────────────────────────────────────────────────────────────
+
+message RegisterRequest {
+  string player_name = 1;
+  string city_name   = 2;
+}
+
+message RegisterResponse {
+  string player_id     = 1;
+  string city_id       = 2;
+  City   city          = 3;
+  string session_token = 4;
+}
+
+// ─── City ──────────────────────────────────────────────────────────────────
+
+message City {
+  string     id             = 1;
+  string     name           = 2;
+  string     mayor_id       = 3;
+  string     mayor_name     = 4;
+  Population population     = 5;
+  double     happiness      = 6;
+  int64      treasury       = 7;
+  double     tax_rate       = 8;
+  repeated Building buildings  = 9;
+  repeated string products     = 10; // product IDs produced
+  repeated string trade_routes = 11; // connected city IDs
+  CityStats  stats           = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message Population {
+  int32 total         = 1;
+  int32 workers       = 2;
+  int32 families      = 3;
+  int32 entrepreneurs = 4;
+  int32 students      = 5;
+  int32 homeless      = 6;
+}
+
+message Building {
+  string        id       = 1;
+  BuildingType  type     = 2;
+  string        name     = 3;
+  int32         level    = 4;
+  int32         capacity = 5;
+}
+
+message CityStats {
+  int32  unemployment_rate = 1;
+  int32  crime_rate        = 2;
+  int32  education_level   = 3;
+  int32  health_level      = 4;
+  int64  gdp               = 5;
+  int32  innovation_index  = 6;
+}
+
+enum BuildingType {
+  BUILDING_UNKNOWN     = 0;
+  BUILDING_HOUSE       = 1;
+  BUILDING_AFFORDABLE_HOUSING = 2;
+  BUILDING_SCHOOL      = 3;
+  BUILDING_UNIVERSITY  = 4;
+  BUILDING_HOSPITAL    = 5;
+  BUILDING_FACTORY     = 6;
+  BUILDING_MARKET      = 7;
+  BUILDING_PARK        = 8;
+  BUILDING_POLICE      = 9;
+  BUILDING_LAB         = 10;
+  BUILDING_PORT        = 11;
+}
+
+// ─── Heartbeat / Initiatives ────────────────────────────────────────────────
+
+message Heartbeat {
+  string    id           = 1;
+  string    city_id      = 2;
+  int32     round        = 3;
+  repeated Initiative proposals = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp deadline   = 6;
+}
+
+message Initiative {
+  string          id          = 1;
+  InitiativeType  type        = 2;
+  string          title       = 3;
+  string          description = 4;
+  int64           cost        = 5;
+  InitiativeEffects effects   = 6;
+  int32           duration    = 7; // heartbeats the effect lasts
+}
+
+message InitiativeEffects {
+  int32  population_delta  = 1;
+  double happiness_delta   = 2;
+  int64  treasury_delta    = 3;
+  int32  jobs_delta        = 4;
+  repeated string new_products  = 5;
+  repeated BuildingType new_buildings = 6;
+  string description       = 7; // human readable effect summary
+}
+
+enum InitiativeType {
+  INITIATIVE_UNKNOWN    = 0;
+  INITIATIVE_TAX_CHANGE = 1;
+  INITIATIVE_HOUSING    = 2;
+  INITIATIVE_INDUSTRY   = 3;
+  INITIATIVE_EDUCATION  = 4;
+  INITIATIVE_HEALTH     = 5;
+  INITIATIVE_TRADE_DEAL = 6;
+  INITIATIVE_INNOVATION = 7;
+  INITIATIVE_POLICY     = 8;
+  INITIATIVE_SECURITY   = 9;
+  INITIATIVE_GREEN      = 10;
+}
+
+message MayorDecision {
+  string heartbeat_id  = 1;
+  string city_id       = 2;
+  string player_id     = 3;
+  string initiative_id = 4;
+  google.protobuf.Timestamp decided_at = 5;
+}
+
+message DecisionAck {
+  bool   accepted = 1;
+  string message  = 2;
+}
+
+// ─── City Update (post-heartbeat) ──────────────────────────────────────────
+
+message CityUpdate {
+  string city_id       = 1;
+  City   city          = 2;
+  repeated PopulationEvent events = 3;
+  string applied_initiative_id    = 4;
+  google.protobuf.Timestamp at    = 5;
+}
+
+message PopulationEvent {
+  string          type        = 1; // ARRIVED, LEFT, etc.
+  int32           count       = 2;
+  string          group       = 3; // workers, families, etc.
+  string          reason      = 4;
+}
+
+// ─── Trade ─────────────────────────────────────────────────────────────────
+
+message TradeOrderRequest {
+  string from_city_id   = 1;
+  string to_city_id     = 2;
+  string product_id     = 3;
+  int32  quantity       = 4;
+  int64  price_per_unit = 5;
+  TradeDirection direction = 6;
+}
+
+enum TradeDirection {
+  TRADE_SELL = 0;
+  TRADE_BUY  = 1;
+}
+
+message TradeAck {
+  bool   accepted = 1;
+  string order_id = 2;
+  string message  = 3;
+}
+
+message CancelTradeRequest {
+  string order_id  = 1;
+  string player_id = 2;
+}
+
+// ─── Products ──────────────────────────────────────────────────────────────
+
+message Product {
+  string          id         = 1;
+  string          name       = 2;
+  ProductCategory category   = 3;
+  int64           base_cost  = 4;
+  int64           market_price = 5;
+  repeated BuildingType required_buildings = 6;
+}
+
+enum ProductCategory {
+  PRODUCT_FOOD          = 0;
+  PRODUCT_MATERIALS     = 1;
+  PRODUCT_MANUFACTURING = 2;
+  PRODUCT_SERVICES      = 3;
+  PRODUCT_ENERGY        = 4;
+  PRODUCT_LUXURY        = 5;
+  PRODUCT_TECH          = 6;
+}
+
+// ─── Game State ────────────────────────────────────────────────────────────
+
+message GameStateRequest {}
+
+message GameState {
+  int32    round           = 1;
+  repeated City cities     = 2;
+  repeated Product products = 3;
+  google.protobuf.Timestamp next_heartbeat = 4;
+  int32    total_players   = 5;
+}
+
+// ─── Streaming ─────────────────────────────────────────────────────────────
+
+message StreamRequest {
+  string player_id = 1;
+  string city_id   = 2;
+}
+
+message WorldEvent {
+  string event_type   = 1; // NEW_CITY, TRADE_MILESTONE, INNOVATION, etc.
+  string description  = 2;
+  string city_id      = 3;
+  string city_name    = 4;
+  google.protobuf.Timestamp at = 5;
+}

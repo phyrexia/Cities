@@ -1,0 +1,68 @@
+version: '3.9'
+
+services:
+  # ─── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cities
+      POSTGRES_PASSWORD: cities_dev
+      POSTGRES_DB: cities
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./internal/storage/postgres/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cities"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Coordinator Server ───────────────────────────────────────────────────
+  coordinator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: coordinator
+    ports:
+      - "8080:8080"
+    environment:
+      LISTEN_ADDR: ":8080"
+      DATABASE_URL: "postgres://cities:cities_dev@postgres:5432/cities?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      HEARTBEAT_INTERVAL: "${HEARTBEAT_INTERVAL:-10m}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./web:/app/web  # serve web client
+
+  # ─── Adminer (DB Admin UI) ────────────────────────────────────────────────
+  adminer:
+    image: adminer:4
+    ports:
+      - "8082:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  redis_data:
