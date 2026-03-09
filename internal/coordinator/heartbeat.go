@@ -19,29 +19,29 @@ const DefaultHeartbeatInterval = 10 * time.Minute
 
 // Heartbeat represents one game tick and the proposals sent to a city.
 type Heartbeat struct {
-	ID        string
-	CityID    string
-	Round     int
-	Proposals []ai.Initiative
-	CreatedAt time.Time
-	Deadline  time.Time
+	ID        string          `json:"id"`
+	CityID    string          `json:"city_id"`
+	Round     int             `json:"round"`
+	Proposals []ai.Initiative `json:"proposals"`
+	CreatedAt time.Time       `json:"created_at"`
+	Deadline  time.Time       `json:"deadline"`
 }
 
 // Decision records a mayor's choice for a heartbeat.
 type Decision struct {
-	HeartbeatID  string
-	CityID       string
-	PlayerID     string
-	InitiativeID string
-	DecidedAt    time.Time
+	HeartbeatID  string    `json:"heartbeat_id"`
+	CityID       string    `json:"city_id"`
+	PlayerID     string    `json:"player_id"`
+	InitiativeID string    `json:"initiative_id"`
+	DecidedAt    time.Time `json:"decided_at"`
 }
 
 // HeartbeatResult contains what happened to a city after a heartbeat.
 type HeartbeatResult struct {
-	CityID      string
-	City        *city.City
-	Events      []city.PopulationEvent
-	InitiativeID string
+	CityID       string                 `json:"city_id"`
+	City         *city.City             `json:"city"`
+	Events       []city.PopulationEvent `json:"events"`
+	InitiativeID string                 `json:"initiative_id"`
 }
 
 // Ticker manages the game loop and heartbeat cycle.
@@ -52,13 +52,13 @@ type Ticker struct {
 	tradeEngine *trade.Engine
 	broadcaster *Broadcaster
 
-	mu         sync.Mutex
-	round      int
-	heartbeats map[string]*Heartbeat // heartbeatID → Heartbeat
-	decisions  map[string]*Decision  // cityID → latest decision
-	popEngine    city.PopulationEngine
-	ecoEngine    city.EconomyEngine
-	refugeePool  *GlobalRefugeePool
+	mu          sync.Mutex
+	round       int
+	heartbeats  map[string]*Heartbeat // heartbeatID → Heartbeat
+	decisions   map[string]*Decision  // cityID → latest decision
+	popEngine   city.PopulationEngine
+	ecoEngine   city.EconomyEngine
+	refugeePool *GlobalRefugeePool
 
 	stopCh chan struct{}
 }
@@ -135,6 +135,22 @@ func (t *Ticker) RecordDecision(d Decision) error {
 	return nil
 }
 
+// GetLatestHeartbeat retrieves the most recent heartbeat for a city.
+func (t *Ticker) GetLatestHeartbeat(cityID string) *Heartbeat {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	var latest *Heartbeat
+	for _, hb := range t.heartbeats {
+		if hb.CityID == cityID {
+			if latest == nil || hb.CreatedAt.After(latest.CreatedAt) {
+				latest = hb
+			}
+		}
+	}
+	return latest
+}
+
 // TriggerManual forces an immediate heartbeat (for testing/admin).
 func (t *Ticker) TriggerManual(ctx context.Context) {
 	t.runHeartbeat(ctx)
@@ -177,9 +193,10 @@ func (t *Ticker) runHeartbeat(ctx context.Context) {
 	}
 
 	// Phase 2: Process each city
+	numCities := len(cities)
 	var results []HeartbeatResult
 	for _, c := range cities {
-		result := t.processCity(ctx, c, cities, round)
+		result := t.processCity(ctx, c, cities, round, numCities)
 		results = append(results, result)
 	}
 
@@ -207,7 +224,7 @@ func (t *Ticker) runHeartbeat(ctx context.Context) {
 	log.Printf("[Heartbeat] Round %d complete", round)
 }
 
-func (t *Ticker) processCity(ctx context.Context, c *city.City, allCities []*city.City, round int) HeartbeatResult {
+func (t *Ticker) processCity(ctx context.Context, c *city.City, allCities []*city.City, round, numCities int) HeartbeatResult {
 	result := HeartbeatResult{CityID: c.ID}
 
 	// Apply pending decision from previous heartbeat
@@ -236,10 +253,14 @@ func (t *Ticker) processCity(ctx context.Context, c *city.City, allCities []*cit
 		log.Printf("[Heartbeat] Applied initiative %s to city %s", appliedInitiativeID, c.Name)
 	}
 
-	// Skip tick if city is in vacation mode
+	// Skip tick if city is in ruins or vacation mode
 	currentCity, _ := t.registry.GetCity(c.ID)
-	if currentCity != nil && currentCity.IsInVacationMode() {
-		log.Printf("[Heartbeat] City %s is in vacation mode — skipping tick", c.Name)
+	if currentCity != nil && (currentCity.IsCollapsed() || currentCity.IsInVacationMode()) {
+		if currentCity.IsCollapsed() {
+			log.Printf("[Heartbeat] City %s is in ruins — skipping tick", c.Name)
+		} else {
+			log.Printf("[Heartbeat] City %s is in vacation mode — skipping tick", c.Name)
+		}
 		result.City = currentCity
 		return result
 	}
@@ -259,7 +280,7 @@ func (t *Ticker) processCity(ctx context.Context, c *city.City, allCities []*cit
 	var refugeesAbsorbed int
 	available := t.refugeePool.Available()
 	_ = t.registry.UpdateCity(c.ID, func(cty *city.City) {
-		perCityShare := available / max(len(t.registry.AllCities()), 1)
+		perCityShare := available / max(numCities, 1)
 		var absorbed int
 		events, absorbed = t.popEngine.Simulate(cty, round, perCityShare)
 		refugeesAbsorbed = absorbed
@@ -299,7 +320,9 @@ func (t *Ticker) processCity(ctx context.Context, c *city.City, allCities []*cit
 }
 
 func max(a, b int) int {
-	if a > b { return a }
+	if a > b {
+		return a
+	}
 	return b
 }
 
@@ -329,8 +352,8 @@ func (t *Ticker) generateHeartbeat(ctx context.Context, c *city.City, allCities 
 
 // WorldEvent is a global game event broadcast to all clients.
 type WorldEvent struct {
-	Type        string
-	Description string
-	CityID      string
-	CityName    string
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	CityID      string `json:"city_id"`
+	CityName    string `json:"city_name"`
 }

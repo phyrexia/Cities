@@ -9,9 +9,9 @@ import (
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const (
-	FounderCount       = 500      // permanent settler count — never emigrate
-	BankruptcyThreshold = -50000  // treasury debt that triggers collapse risk
-	CollapsedPopulation = 0       // city dies at 0 non-founder population
+	FounderCount        = 500    // permanent settler count — never emigrate
+	BankruptcyThreshold = -50000 // treasury debt that triggers collapse risk
+	CollapsedPopulation = 0      // city dies at 0 non-founder population
 )
 
 // BuildingType identifies the type of a building.
@@ -61,8 +61,8 @@ type CityStats struct {
 	EducationLevel   int   `json:"education_level"`   // 0–100
 	HealthLevel      int   `json:"health_level"`      // 0–100
 	GDP              int64 `json:"gdp"`
-	InnovationIndex  int   `json:"innovation_index"`  // 0–100
-	PollutionLevel   int   `json:"pollution_level"`   // 0–100
+	InnovationIndex  int   `json:"innovation_index"` // 0–100
+	PollutionLevel   int   `json:"pollution_level"`  // 0–100
 }
 
 // ActivePolicy tracks an active policy or initiative effect.
@@ -99,13 +99,14 @@ type City struct {
 	MayorName string     `json:"mayor_name"`
 	Status    CityStatus `json:"status"`
 
-	Population  Population `json:"population"`
-	Happiness   float64    `json:"happiness"`  // 0–100
-	Treasury    int64      `json:"treasury"`   // Citycoins
-	TaxRate     float64    `json:"tax_rate"`   // 0–100 %
-	Buildings   []Building `json:"buildings"`
-	Products    []string   `json:"products"`    // product IDs produced
-	TradeRoutes []string   `json:"trade_routes"`
+	Population  Population     `json:"population"`
+	Happiness   float64        `json:"happiness"` // 0–100
+	Treasury    int64          `json:"treasury"`  // Citycoins
+	TaxRate     float64        `json:"tax_rate"`  // 0–100 %
+	Buildings   []Building     `json:"buildings"`
+	Products    []string       `json:"products"`  // product IDs produced
+	Resources   map[string]int `json:"resources"` // ResourceID -> Quantity
+	TradeRoutes []string       `json:"trade_routes"`
 
 	Stats          CityStats      `json:"stats"`
 	ActivePolicies []ActivePolicy `json:"active_policies"`
@@ -137,11 +138,16 @@ func New(cityName, mayorID, mayorName string) *City {
 			Homeless:      50,
 			Founders:      FounderCount, // permanent — never emigrate
 		},
-		Happiness:   60.0,
-		Treasury:    10000,
-		TaxRate:     20.0,
-		Buildings:   starterBuildings(),
-		Products:    []string{"food", "clothing"},
+		Happiness: 60.0,
+		Treasury:  10000,
+		TaxRate:   20.0,
+		Buildings: starterBuildings(),
+		Products:  []string{"food", "clothing"},
+		Resources: map[string]int{
+			"materials": 100,
+			"metal":     50,
+			"food":      200,
+		},
 		TradeRoutes: []string{},
 		Stats: CityStats{
 			UnemploymentRate: 15,
@@ -165,9 +171,9 @@ func NewFromRuins(ruins *City, newMayorID, newMayorName, newCityName string) *Ci
 	c.Treasury += 2000
 	// Grant monument (cosmetic + small happiness bonus)
 	c.Buildings = append(c.Buildings, Building{
-		ID:   uuid.NewString(),
-		Type: BuildingMonument,
-		Name: "Memorial of " + ruins.Name,
+		ID:    uuid.NewString(),
+		Type:  BuildingMonument,
+		Name:  "Memorial of " + ruins.Name,
 		Level: 1,
 	})
 	c.Ruins = &RuinsData{
@@ -200,7 +206,9 @@ func ruinsRecoveryCost(c *City) int64 {
 	// Larger peak population = more expensive to recover (more infrastructure)
 	base += int64(c.PeakPopulation / 10)
 	// Cap at 50,000 Citycoins
-	if base > 50000 { base = 50000 }
+	if base > 50000 {
+		base = 50000
+	}
 	return base
 }
 
@@ -218,10 +226,10 @@ func (c *City) IsInVacationMode() bool {
 // Founders can never bring the city back to life alone — they survive but city enters ruins.
 func (c *City) CheckCollapse(round int) bool {
 	if c.Status == StatusRuins {
-		return true
+		return false
 	}
 	nonFounderPop := c.Population.Total - c.Population.Founders
-	if nonFounderPop <= 0 && c.Population.Founders > 0 {
+	if c.Round > 5 && nonFounderPop <= 0 && c.Population.Founders > 0 {
 		// Only founders left — city collapses structurally
 		c.Collapse(round)
 		return true
@@ -244,13 +252,17 @@ func starterBuildings() []Building {
 
 func (c *City) HasBuilding(t BuildingType) bool {
 	for _, b := range c.Buildings {
-		if b.Type == t { return true }
+		if b.Type == t {
+			return true
+		}
 	}
 	return false
 }
 
 func (c *City) AddBuilding(b Building) {
-	if b.ID == "" { b.ID = uuid.NewString() }
+	if b.ID == "" {
+		b.ID = uuid.NewString()
+	}
 	c.Buildings = append(c.Buildings, b)
 }
 
@@ -271,9 +283,15 @@ func (c *City) AttractivenessScore() float64 {
 	score += float64(c.Stats.HealthLevel) * 0.1
 	score += float64(100-c.Stats.CrimeRate) * 0.1
 	score += float64(100-c.Stats.PollutionLevel) * 0.05
-	if c.TaxRate > 30 { score -= (c.TaxRate - 30) * 0.4 }
-	if score < 0 { score = 0 }
-	if score > 100 { score = 100 }
+	if c.TaxRate > 30 {
+		score -= (c.TaxRate - 30) * 0.4
+	}
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
 	return score
 }
 

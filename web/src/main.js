@@ -5,11 +5,12 @@
 
 let currentHeartbeat = null;
 let selectedProposalID = null;
-let gameState = {
+window.gameState = {
   playerID: null,
   cityID: null,
   city: null,
 };
+const gameState = window.gameState;
 
 // ─── Login / Registration ────────────────────────────────────────────────────
 
@@ -19,6 +20,8 @@ async function startGame() {
   const existingPlayerID = document.getElementById('existing-player-id').value.trim();
   const existingCityID = document.getElementById('existing-city-id').value.trim();
   const errorEl = document.getElementById('error-msg');
+
+  console.log('[Game] Starting registration...', { playerName, cityName });
 
   if (!playerName) {
     errorEl.textContent = 'Please enter your name';
@@ -46,15 +49,17 @@ async function startGame() {
         throw new Error(txt || `Server error: ${resp.status}`);
       }
       const data = await resp.json();
+      console.log('[Game] Registered successfully:', data);
       gameState.playerID = data.player_id;
       gameState.cityID = data.city_id;
       gameState.city = data.city;
     }
 
+    console.log('[Game] Transitioning to game view...');
     showGame();
   } catch (err) {
+    console.error('[Game] Initialization failed:', err);
     errorEl.textContent = `Failed: ${err.message}`;
-    console.error(err);
   }
 }
 
@@ -103,7 +108,7 @@ function initWebSocket() {
     .on('city_update', (update) => {
       if (update && update.city) {
         gameState.city = update.city;
-        // GameScene picks this up via its own listener
+        updateHUD(update.city);
         addLog(`City updated — pop: ${update.city.population?.total || 0}`, 'good');
         if (update.events) {
           update.events.forEach(ev => {
@@ -119,6 +124,10 @@ function initWebSocket() {
     });
 
   window.citiesWS.connect();
+
+  if (gameState.city) {
+    updateHUD(gameState.city);
+  }
 }
 
 // ─── Heartbeat UI ─────────────────────────────────────────────────────────────
@@ -168,7 +177,17 @@ function selectProposal(proposalID, cardEl) {
   selectedProposalID = proposalID;
   document.querySelectorAll('.proposal-card').forEach(c => c.classList.remove('selected'));
   cardEl.classList.add('selected');
-  document.getElementById('submit-decision').style.display = 'block';
+  const submitBtn = document.getElementById('submit-decision');
+  submitBtn.style.display = 'block';
+  submitBtn.onclick = () => {
+    const payload = {
+      heartbeat_id: gameState.currentHeartbeatID,
+      initiative_id: proposalID
+    };
+    window.citiesWS.send('decision', payload);
+    document.getElementById('heartbeat-banner').style.display = 'none';
+    addLog('Decision submitted to council.', 'good');
+  };
 }
 
 function submitDecision() {
@@ -190,6 +209,27 @@ function submitDecision() {
 
 // ─── Event Log ───────────────────────────────────────────────────────────────
 
+function updateHUD(city) {
+  if (!city) return;
+  console.log('[HUD] Updating with city data:', city.name, city.resources);
+  document.getElementById('hud-city').textContent = city.name || '—';
+  document.getElementById('hud-pop').textContent = (city.population?.total || 0).toLocaleString();
+  document.getElementById('hud-happy').textContent = (city.happiness || 0).toFixed(1) + '%';
+  document.getElementById('hud-treasury').textContent = (city.treasury || 0).toLocaleString() + ' ¢';
+  document.getElementById('hud-tax').textContent = (city.tax_rate || 0).toFixed(1) + '%';
+  document.getElementById('hud-round').textContent = city.round || '0';
+
+  // Resources
+  const res = city.resources || {};
+  const resContainer = document.getElementById('hud-resources');
+  resContainer.innerHTML = `
+    <span class="resource-badge res-food">FOOD: ${res.food || 0}</span>
+    <span class="resource-badge res-metal">METAL: ${res.metal || 0}</span>
+    <span class="resource-badge res-materials">MATS: ${res.materials || 0}</span>
+    ${res.medicines ? `<span class="resource-badge res-medicines">MEDS: ${res.medicines}</span>` : ''}
+  `;
+}
+
 function addLog(text, className = '') {
   const log = document.getElementById('event-log');
   const entry = document.createElement('div');
@@ -208,16 +248,16 @@ function addLog(text, className = '') {
 
 function getInitiativeIcon(type) {
   const icons = {
-    HOUSING:    '🏠',
-    INDUSTRY:   '🏭',
-    EDUCATION:  '🎓',
-    HEALTH:     '🏥',
+    HOUSING: '🏠',
+    INDUSTRY: '🏭',
+    EDUCATION: '🎓',
+    HEALTH: '🏥',
     TAX_CHANGE: '💰',
     TRADE_DEAL: '🤝',
     INNOVATION: '💡',
-    POLICY:     '📋',
-    SECURITY:   '🚔',
-    GREEN:      '🌱',
+    POLICY: '📋',
+    SECURITY: '🚔',
+    GREEN: '🌱',
   };
   return icons[type] || '📌';
 }

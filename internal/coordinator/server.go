@@ -100,6 +100,28 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.broadcaster.Register(client)
 	defer s.broadcaster.Unregister(playerID)
 
+	// Send initial state
+	if c, err := s.registry.GetCity(cityID); err == nil {
+		result := HeartbeatResult{
+			CityID: cityID,
+			City:   c,
+		}
+		msg := WSMessage{Type: MsgCityUpdate, Payload: result}
+		if data, err := json.Marshal(msg); err == nil {
+			client.Send <- data
+		}
+	}
+
+	// Send active heartbeat if exists
+	if hb := s.ticker.GetLatestHeartbeat(cityID); hb != nil {
+		if time.Now().Before(hb.Deadline) {
+			msg := WSMessage{Type: MsgHeartbeat, Payload: hb}
+			if data, err := json.Marshal(msg); err == nil {
+				client.Send <- data
+			}
+		}
+	}
+
 	// Write pump
 	go func() {
 		defer conn.Close()

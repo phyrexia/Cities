@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CITIES — Social Simulator</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       background: #0a0a0f;
       display: flex;
@@ -16,6 +22,7 @@
       font-family: 'Courier New', monospace;
       color: #ffffff;
     }
+
     #login-screen {
       display: flex;
       flex-direction: column;
@@ -25,6 +32,7 @@
       gap: 16px;
       padding: 24px;
     }
+
     .pixel-title {
       font-size: 2.5rem;
       font-weight: bold;
@@ -34,24 +42,28 @@
       text-transform: uppercase;
       margin-bottom: 8px;
     }
+
     .pixel-subtitle {
       font-size: 0.9rem;
       color: #4A9EFF;
       letter-spacing: 2px;
       margin-bottom: 32px;
     }
+
     .input-group {
       display: flex;
       flex-direction: column;
       gap: 8px;
       width: 320px;
     }
+
     .input-group label {
       color: #888;
       font-size: 0.8rem;
       letter-spacing: 1px;
       text-transform: uppercase;
     }
+
     .pixel-input {
       background: #1a1a2e;
       border: 2px solid #4A9EFF;
@@ -62,9 +74,11 @@
       outline: none;
       transition: border-color 0.2s;
     }
+
     .pixel-input:focus {
       border-color: #FFD700;
     }
+
     .pixel-btn {
       background: #4A9EFF;
       color: #0a0a0f;
@@ -79,54 +93,166 @@
       transition: background 0.2s;
       margin-top: 16px;
     }
-    .pixel-btn:hover { background: #FFD700; }
-    .error-msg { color: #FF4444; font-size: 0.85rem; }
-    #game-container { display: none; width: 100%; }
-    #phaser-canvas { display: block; margin: 0 auto; }
+
+    .pixel-btn:hover {
+      background: #FFD700;
+    }
+
+    .error-msg {
+      color: #FF4444;
+      font-size: 0.85rem;
+    }
+
+    #game-container {
+      display: none;
+      width: 100%;
+    }
+
+    #phaser-canvas {
+      display: block;
+      margin: 0 auto;
+    }
+
     #hud {
       display: none;
       width: 100%;
-      max-width: 800px;
-      padding: 8px 16px;
-      background: #0f0f1a;
-      border-bottom: 1px solid #333;
+      padding: 10px 20px;
+      background: rgba(15, 15, 26, 0.9);
+      border-bottom: 2px solid #333;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
     }
+
     .hud-bar {
       display: flex;
       gap: 24px;
       align-items: center;
       font-size: 0.8rem;
     }
-    .hud-item { display: flex; gap: 6px; align-items: center; }
-    .hud-label { color: #888; }
-    .hud-value { color: #FFD700; font-weight: bold; }
-    .hud-value.good { color: #00FF88; }
-    .hud-value.bad { color: #FF4444; }
+
+    .hud-item {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .hud-label {
+      color: #888;
+    }
+
+    .hud-value {
+      color: #FFD700;
+      font-weight: bold;
+    }
+
+    .hud-value.good {
+      color: #00FF88;
+    }
+
+    .hud-value.bad {
+      color: #FF4444;
+    }
+
     #heartbeat-banner {
       display: none;
       position: fixed;
-      top: 0; left: 0; right: 0;
-      background: linear-gradient(90deg, #1a0a00, #2a1a00, #1a0a00);
-      border-bottom: 2px solid #FFD700;
-      padding: 8px 16px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(0deg, #1a0a00, #2a1a00DD, #1a0a00AA);
+      border-top: 3px solid #FFD700;
+      padding: 20px;
       z-index: 1000;
-      animation: pulse 1s infinite;
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8);
+      max-height: 40vh;
+      overflow-y: auto;
     }
+
+    .proposals-container {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .proposal-card {
+      background: #3a2a10;
+      border: 1px solid #5a4a20;
+      padding: 15px;
+      width: 250px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .proposal-card:hover {
+      background: #4a3a20;
+      transform: translateY(-5px);
+    }
+
+    .proposal-card.selected {
+      border: 3px solid #00ff00;
+      background: #2a3a10;
+      box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+    }
+
+    .resource-badge {
+      background: #222;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9em;
+      margin-right: 5px;
+      border: 1px solid #444;
+    }
+
+    .res-food {
+      color: #00ff00;
+      border-color: #006600;
+    }
+
+    .res-metal {
+      color: #aaa;
+      border-color: #666;
+    }
+
+    .res-materials {
+      color: #cc8800;
+      border-color: #663300;
+    }
+
+    .res-medicines {
+      color: #00ffff;
+      border-color: #006666;
+    }
+
     @keyframes pulse {
-      0%, 100% { border-color: #FFD700; }
-      50% { border-color: #FF8800; }
+
+      0%,
+      100% {
+        border-color: #FFD700;
+      }
+
+      50% {
+        border-color: #FF8800;
+      }
     }
+
     #heartbeat-banner h3 {
       color: #FFD700;
       font-size: 0.9rem;
       letter-spacing: 2px;
       margin-bottom: 8px;
     }
+
     #proposals-container {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
     }
+
     .proposal-card {
       background: #1a1a2e;
       border: 2px solid #4A9EFF;
@@ -136,28 +262,35 @@
       max-width: 220px;
       font-size: 0.8rem;
     }
-    .proposal-card:hover, .proposal-card.selected {
+
+    .proposal-card:hover,
+    .proposal-card.selected {
       border-color: #FFD700;
       background: #2a1a00;
     }
+
     .proposal-card h4 {
       color: #FFD700;
       margin-bottom: 4px;
       font-size: 0.85rem;
     }
+
     .proposal-card .effects {
       color: #888;
       margin-top: 6px;
       font-size: 0.75rem;
     }
+
     .proposal-card .cost {
       color: #FF4444;
       font-weight: bold;
     }
+
     #submit-decision {
       display: none;
       margin-top: 12px;
     }
+
     #event-log {
       position: fixed;
       bottom: 8px;
@@ -170,88 +303,113 @@
       max-height: 120px;
       overflow-y: auto;
     }
-    .log-entry { color: #666; padding: 1px 0; }
-    .log-entry.important { color: #FFD700; }
-    .log-entry.good { color: #00FF88; }
-    .log-entry.bad { color: #FF4444; }
+
+    .log-entry {
+      color: #666;
+      padding: 1px 0;
+    }
+
+    .log-entry.important {
+      color: #FFD700;
+    }
+
+    .log-entry.good {
+      color: #00FF88;
+    }
+
+    .log-entry.bad {
+      color: #FF4444;
+    }
   </style>
 </head>
+
 <body>
 
-<!-- LOGIN SCREEN -->
-<div id="login-screen">
-  <div class="pixel-title">CITIES</div>
-  <div class="pixel-subtitle">Social Simulator — Multi-Player City Builder</div>
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen">
+    <div class="pixel-title">CITIES</div>
+    <div class="pixel-subtitle">Social Simulator — Multi-Player City Builder</div>
 
-  <div class="input-group">
-    <label>Your Name (Mayor)</label>
-    <input type="text" id="player-name" class="pixel-input" placeholder="e.g. Alexandra" maxlength="30">
+    <div class="input-group">
+      <label>Your Name (Mayor)</label>
+      <input type="text" id="player-name" class="pixel-input" placeholder="e.g. Alexandra" maxlength="30">
+    </div>
+    <div class="input-group">
+      <label>Your City Name</label>
+      <input type="text" id="city-name" class="pixel-input" placeholder="e.g. Nova City" maxlength="30">
+    </div>
+    <div class="input-group" style="margin-top:8px">
+      <label style="color:#555">Or reconnect with existing IDs (optional)</label>
+      <input type="text" id="existing-player-id" class="pixel-input" placeholder="Player ID (leave blank for new)"
+        style="border-color:#333">
+      <input type="text" id="existing-city-id" class="pixel-input" placeholder="City ID (leave blank for new)"
+        style="border-color:#333">
+    </div>
+
+    <button class="pixel-btn" onclick="startGame()">START GAME</button>
+    <div id="error-msg" class="error-msg"></div>
   </div>
-  <div class="input-group">
-    <label>Your City Name</label>
-    <input type="text" id="city-name" class="pixel-input" placeholder="e.g. Nova City" maxlength="30">
-  </div>
-  <div class="input-group" style="margin-top:8px">
-    <label style="color:#555">Or reconnect with existing IDs (optional)</label>
-    <input type="text" id="existing-player-id" class="pixel-input" placeholder="Player ID (leave blank for new)" style="border-color:#333">
-    <input type="text" id="existing-city-id" class="pixel-input" placeholder="City ID (leave blank for new)" style="border-color:#333">
-  </div>
 
-  <button class="pixel-btn" onclick="startGame()">START GAME</button>
-  <div id="error-msg" class="error-msg"></div>
-</div>
-
-<!-- HUD -->
-<div id="hud">
-  <div class="hud-bar">
-    <div class="hud-item">
-      <span class="hud-label">CITY</span>
-      <span class="hud-value" id="hud-city">—</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">POP</span>
-      <span class="hud-value" id="hud-pop">—</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">HAPPY</span>
-      <span class="hud-value" id="hud-happy">—</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">TREASURY</span>
-      <span class="hud-value" id="hud-treasury">—</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">TAX</span>
-      <span class="hud-value" id="hud-tax">—</span>
-    </div>
-    <div class="hud-item" style="margin-left:auto">
-      <span class="hud-label">ROUND</span>
-      <span class="hud-value" id="hud-round">—</span>
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-bar">
+      <div class="hud-item">
+        <span class="hud-label">CITY</span>
+        <span class="hud-value" id="hud-city">—</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">POP</span>
+        <span class="hud-value" id="hud-pop">—</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">HAPPY</span>
+        <span class="hud-value" id="hud-happy">—</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">TREASURY</span>
+        <span class="hud-value" id="hud-treasury">—</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">TAX</span>
+        <span class="hud-value" id="hud-tax">—</span>
+      </div>
+      <div class="hud-item" style="margin-left:auto">
+        <span class="hud-label">RESOURCES</span>
+        <span class="hud-value" id="hud-resources">
+          <span class="resource-badge res-food">FOOD: 0</span>
+          <span class="resource-badge res-metal">METAL: 0</span>
+          <span class="resource-badge res-materials">MATS: 0</span>
+        </span>
+      </div>
+      <div class="hud-item" style="margin-left:15px">
+        <span class="hud-label">ROUND</span>
+        <span class="hud-value" id="hud-round">—</span>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- PHASER GAME -->
-<div id="game-container">
-  <canvas id="phaser-canvas"></canvas>
-</div>
+  <!-- PHASER GAME -->
+  <div id="game-container">
+    <canvas id="phaser-canvas"></canvas>
+  </div>
 
-<!-- HEARTBEAT BANNER -->
-<div id="heartbeat-banner">
-  <h3>⚡ HEARTBEAT — Choose an initiative for your city!</h3>
-  <div id="proposals-container"></div>
-  <button id="submit-decision" class="pixel-btn" onclick="submitDecision()">CONFIRM DECISION</button>
-</div>
+  <!-- HEARTBEAT BANNER -->
+  <div id="heartbeat-banner">
+    <h3>⚡ HEARTBEAT — Choose an initiative for your city!</h3>
+    <div id="proposals-container"></div>
+    <button id="submit-decision" class="pixel-btn" onclick="submitDecision()">CONFIRM DECISION</button>
+  </div>
 
-<!-- EVENT LOG -->
-<div id="event-log">
-  <div style="color:#555;font-size:0.65rem;margin-bottom:4px">EVENT LOG</div>
-</div>
+  <!-- EVENT LOG -->
+  <div id="event-log">
+    <div style="color:#555;font-size:0.65rem;margin-bottom:4px">EVENT LOG</div>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-<script src="/src/api/websocket.js"></script>
-<script src="/src/entities/Building.js"></script>
-<script src="/src/scenes/GameScene.js"></script>
-<script src="/src/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script src="/src/api/websocket.js"></script>
+  <script src="/src/entities/Building.js"></script>
+  <script src="/src/scenes/GameScene.js"></script>
+  <script src="/src/main.js"></script>
 </body>
+
 </html>

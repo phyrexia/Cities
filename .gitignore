@@ -1,0 +1,8 @@
+.env
+tmp/
+*.log
+/cmd/coordinator/coordinator
+/coordinator
+bin/
+node_modules/
+.DS_Store

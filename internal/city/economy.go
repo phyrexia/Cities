@@ -34,6 +34,9 @@ func (ee *EconomyEngine) Tick(c *City) {
 	// GDP calculation
 	c.Stats.GDP = taxBase + tradeIncome + int64(c.Stats.InnovationIndex)*500
 
+	// Resource Production
+	ee.produceResources(c)
+
 	// Unemployment: jobs from factories vs working-age population
 	jobs := jobCapacity(c)
 	workingPop := c.Population.Workers + c.Population.Entrepreneurs
@@ -47,6 +50,31 @@ func (ee *EconomyEngine) Tick(c *City) {
 
 	// Happiness adjustments
 	c.updateHappiness()
+}
+
+func (ee *EconomyEngine) produceResources(c *City) {
+	if c.Resources == nil {
+		c.Resources = make(map[string]int)
+	}
+
+	for _, b := range c.Buildings {
+		switch b.Type {
+		case BuildingFactory:
+			c.Resources["materials"] += 10 + (b.Level * 5)
+			c.Resources["metal"] += 5 + (b.Level * 2)
+		case BuildingMarket:
+			c.Resources["food"] += 15 + (b.Level * 3)
+		case BuildingLab:
+			c.Resources["medicines"] += 2 + b.Level
+		}
+	}
+
+	// Consumption
+	c.Resources["food"] -= c.Population.Total / 50
+	if c.Resources["food"] < 0 {
+		c.Resources["food"] = 0
+		c.Happiness -= 2 // Hunger penalty
+	}
 }
 
 // updateHappiness recalculates the happiness index based on city conditions.
@@ -297,8 +325,12 @@ func (c *City) UpdatePollution() {
 		}
 	}
 	// Parks and labs reduce pollution
-	if c.HasBuilding(BuildingPark) { pollution -= 5 }
-	if c.HasBuilding(BuildingLab) { pollution -= 3 }
+	if c.HasBuilding(BuildingPark) {
+		pollution -= 5
+	}
+	if c.HasBuilding(BuildingLab) {
+		pollution -= 3
+	}
 	// Cleantech product reduces pollution significantly
 	for _, p := range c.Products {
 		if p == "cleantech" || p == "solar_panels" {

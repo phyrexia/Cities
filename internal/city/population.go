@@ -14,23 +14,23 @@ import (
 type SocialClass string
 
 const (
-	ClassPoor        SocialClass = "poor"
+	ClassPoor         SocialClass = "poor"
 	ClassWorkingClass SocialClass = "working_class"
-	ClassMiddle      SocialClass = "middle"
-	ClassUpper       SocialClass = "upper"
+	ClassMiddle       SocialClass = "middle"
+	ClassUpper        SocialClass = "upper"
 )
 
 // CohortType categorizes what kind of people are in the cohort.
 type CohortType string
 
 const (
-	CohortFounders      CohortType = "founders"      // PERMANENT — original 500, never emigrate
+	CohortFounders      CohortType = "founders" // PERMANENT — original 500, never emigrate
 	CohortWorkers       CohortType = "workers"
 	CohortFamilies      CohortType = "families"
 	CohortEntrepreneurs CohortType = "entrepreneurs"
 	CohortStudents      CohortType = "students"
 	CohortHomeless      CohortType = "homeless"
-	CohortRefugees      CohortType = "refugees"      // arrived from global pool
+	CohortRefugees      CohortType = "refugees" // arrived from global pool
 )
 
 // Population tracks city population via demographic groups.
@@ -44,16 +44,16 @@ type Population struct {
 	Homeless      int `json:"homeless"`
 	// Founders: the original 500 settlers. These individuals NEVER emigrate.
 	// Their children (FounderDescendants) are normal citizens and can emigrate.
-	Founders            int `json:"founders"`
-	FounderDescendants  int `json:"founder_descendants"`
+	Founders           int `json:"founders"`
+	FounderDescendants int `json:"founder_descendants"`
 }
 
 // PopulationEvent describes a migration or demographic event.
 type PopulationEvent struct {
-	Type   string // ARRIVED, LEFT, BORN, PROMOTED, DIED
-	Count  int
-	Group  string
-	Reason string
+	Type   string `json:"type"` // ARRIVED, LEFT, BORN, PROMOTED, DIED
+	Count  int    `json:"count"`
+	Group  string `json:"group"`
+	Reason string `json:"reason"`
 }
 
 // RefugeeBatch represents migrants available from the global pool.
@@ -200,7 +200,9 @@ func (pe *PopulationEngine) computeEmigration(c *City) ([]PopulationEvent, int) 
 
 	doEmigrate := func(n int, group, reason string) {
 		n = clamp(n, 0, emigratable-totalLeft)
-		if n <= 0 { return }
+		if n <= 0 {
+			return
+		}
 		emigrateNonFounders(c, n)
 		totalLeft += n
 		events = append(events, PopulationEvent{
@@ -233,7 +235,7 @@ func (pe *PopulationEngine) simulateSocialMobility(c *City) []PopulationEvent {
 		c.Population.Entrepreneurs += promoted
 		events = append(events, PopulationEvent{
 			Type: "PROMOTED", Count: promoted,
-			Group: "workers→entrepreneurs",
+			Group:  "workers→entrepreneurs",
 			Reason: "education-driven social mobility",
 		})
 	}
@@ -241,12 +243,24 @@ func (pe *PopulationEngine) simulateSocialMobility(c *City) []PopulationEvent {
 }
 
 func (pe *PopulationEngine) recomputeTotals(c *City) {
-	if c.Population.Workers < 0 { c.Population.Workers = 0 }
-	if c.Population.Families < 0 { c.Population.Families = 0 }
-	if c.Population.Entrepreneurs < 0 { c.Population.Entrepreneurs = 0 }
-	if c.Population.Students < 0 { c.Population.Students = 0 }
-	if c.Population.Homeless < 0 { c.Population.Homeless = 0 }
-	if c.Population.FounderDescendants < 0 { c.Population.FounderDescendants = 0 }
+	if c.Population.Workers < 0 {
+		c.Population.Workers = 0
+	}
+	if c.Population.Families < 0 {
+		c.Population.Families = 0
+	}
+	if c.Population.Entrepreneurs < 0 {
+		c.Population.Entrepreneurs = 0
+	}
+	if c.Population.Students < 0 {
+		c.Population.Students = 0
+	}
+	if c.Population.Homeless < 0 {
+		c.Population.Homeless = 0
+	}
+	if c.Population.FounderDescendants < 0 {
+		c.Population.FounderDescendants = 0
+	}
 
 	c.Population.Total = c.Population.Workers + c.Population.Families +
 		c.Population.Entrepreneurs + c.Population.Students + c.Population.Homeless
@@ -255,13 +269,17 @@ func (pe *PopulationEngine) recomputeTotals(c *City) {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func naturalGrowth(c *City) int {
-	if c.Population.Total < 100 { return 0 }
+	if c.Population.Total < 100 {
+		return 0
+	}
 	rate := 0.005 + (c.Happiness-60)*0.0001
 	return int(float64(c.Population.Families) * rate * (0.5 + rand.Float64()))
 }
 
 func founderBirths(c *City, round int) int {
-	if c.Population.Founders <= 0 || round < 3 { return 0 }
+	if c.Population.Founders <= 0 || round < 3 {
+		return 0
+	}
 	return int(float64(c.Population.Founders) * 0.003)
 }
 
@@ -269,7 +287,9 @@ func hasBasicNeeds(c *City) bool {
 	foodItems := []string{"food", "grain", "fish", "meat", "fruit", "bread"}
 	for _, p := range c.Products {
 		for _, f := range foodItems {
-			if p == f { return true }
+			if p == f {
+				return true
+			}
 		}
 	}
 	return len(c.TradeRoutes) > 0 // can import food
@@ -277,7 +297,9 @@ func hasBasicNeeds(c *City) bool {
 
 func emigrateNonFounders(c *City, count int) {
 	emigratable := c.Population.Total - c.Population.Founders
-	if emigratable <= 0 || count <= 0 { return }
+	if emigratable <= 0 || count <= 0 {
+		return
+	}
 	ratio := math.Min(float64(count)/float64(emigratable), 0.5)
 	c.Population.Workers -= int(float64(c.Population.Workers) * ratio)
 	c.Population.Families -= int(float64(c.Population.Families) * ratio)
@@ -288,7 +310,11 @@ func emigrateNonFounders(c *City, count int) {
 }
 
 func clamp(v, min, max int) int {
-	if v < min { return min }
-	if v > max { return max }
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
 	return v
 }

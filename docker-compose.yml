@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./internal/storage/postgres/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cities"]
+      test: [ "CMD-SHELL", "pg_isready -U cities" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -41,19 +41,27 @@ services:
       target: coordinator
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       LISTEN_ADDR: ":8080"
       DATABASE_URL: "postgres://cities:cities_dev@postgres:5432/cities?sslmode=disable"
       REDIS_URL: "redis://redis:6379"
+      LLM_BACKEND: "${LLM_BACKEND:-OPENROUTER}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
-      HEARTBEAT_INTERVAL: "${HEARTBEAT_INTERVAL:-10m}"
+      ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-}"
+      LOCAL_LLM_URL: "${LOCAL_LLM_URL:-}"
+      LOCAL_LLM_MODEL: "${LOCAL_LLM_MODEL:-}"
+      HEARTBEAT_INTERVAL: "${HEARTBEAT_INTERVAL:-30s}"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./web:/app/web  # serve web client
+      - ./web:/app/web # serve web client
 
   # ─── Adminer (DB Admin UI) ────────────────────────────────────────────────
   adminer:
