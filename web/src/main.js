@@ -12,6 +12,24 @@ window.gameState = {
 };
 const gameState = window.gameState;
 
+// ─── Session Persistence ─────────────────────────────────────────────────────
+
+function checkSavedSession() {
+  const session = localStorage.getItem('cities_session');
+  if (!session) return null;
+  try {
+    return JSON.parse(session);
+  } catch (e) {
+    return null;
+  }
+}
+
+function resumeSession(session) {
+  gameState.playerID = session.playerID;
+  gameState.cityID = session.cityID;
+  showGame();
+}
+
 // ─── Login / Registration ────────────────────────────────────────────────────
 
 async function startGame() {
@@ -53,6 +71,16 @@ async function startGame() {
       gameState.playerID = data.player_id;
       gameState.cityID = data.city_id;
       gameState.city = data.city;
+
+      // Save session to localStorage
+      const session = {
+        playerID: data.player_id,
+        cityID: data.city_id,
+        playerName: playerName,
+        cityName: cityName,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('cities_session', JSON.stringify(session));
     }
 
     console.log('[Game] Transitioning to game view...');
@@ -261,6 +289,27 @@ function getInitiativeIcon(type) {
   };
   return icons[type] || '📌';
 }
+
+// ─── Page Load Handler ────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  const savedSession = checkSavedSession();
+  if (savedSession) {
+    const loginScreen = document.getElementById('login-screen');
+    loginScreen.innerHTML = `
+      <div class="pixel-title">CITIES</div>
+      <div class="pixel-subtitle">Social Simulator</div>
+      <p style="color: #888; margin-bottom: 24px;">Welcome back!</p>
+      <p style="color: #FFD700; font-size: 1.2rem; margin-bottom: 12px;">${savedSession.playerName}</p>
+      <p style="color: #4A9EFF; margin-bottom: 32px;">${savedSession.cityName}</p>
+      <button class="pixel-btn" onclick="resumeSession(checkSavedSession())">CONTINUAR</button>
+      <button class="pixel-btn" style="margin-top: 12px; background: #666;" onclick="
+        localStorage.removeItem('cities_session');
+        location.reload();
+      ">NUEVA CIUDAD</button>
+    `;
+  }
+});
 
 // Handle Enter key on inputs
 document.addEventListener('keydown', (e) => {
