@@ -144,6 +144,17 @@ function showGame() {
 
   initPhaser();
   initWebSocket();
+
+  // Polling for market orders
+  setInterval(() => {
+    if (gameState.cityID) {
+      updateMarketOrders();
+    }
+  }, MARKET_POLL_INTERVAL);
+
+  if (gameState.city) {
+    updateHUD(gameState.city);
+  }
 }
 
 // ─── Phaser Game ─────────────────────────────────────────────────────────────
@@ -183,6 +194,8 @@ function initWebSocket() {
       if (update && update.city) {
         gameState.city = update.city;
         updateHUD(update.city);
+        updateMarketOrders();
+        renderMyProducts(update.city.resources || {});
         addLog(`City updated — pop: ${update.city.population?.total || 0}`, 'good');
         if (update.events) {
           update.events.forEach(ev => {
@@ -429,16 +442,159 @@ function updateHUD(city) {
   updateResourcesPanel(res);
 }
 
-function renderMyProducts(resources) {
-  // Will implement in Task 12
-  const panel = document.getElementById('my-products-list');
-  panel.innerHTML = '<div style="color: #666; text-align: center;">Loading...</div>';
-}
+// ─── Task 11: Trade Market Polling & Order Book ──────────────────────────────
+
+let lastMarketPoll = 0;
+const MARKET_POLL_INTERVAL = 30000; // 30 seconds
 
 async function updateMarketOrders() {
-  // Will implement in Task 11
+  try {
+    const response = await fetch('/api/trade/orders');
+    if (!response.ok) return;
+
+    const orders = await response.json();
+    if (!Array.isArray(orders)) return;
+
+    renderMarketOrders(orders);
+  } catch (err) {
+    console.error('[Market] Error fetching orders:', err);
+  }
+}
+
+function renderMarketOrders(orders) {
   const panel = document.getElementById('market-orders-list');
-  panel.innerHTML = '<div style="color: #666; text-align: center;">Loading market...</div>';
+
+  if (!orders || orders.length === 0) {
+    panel.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">No orders available</div>';
+    return;
+  }
+
+  let html = '<div style="font-size: 0.75rem; color: #888; display: grid; grid-template-columns: 1fr 1fr 0.5fr 0.5fr 0.8fr; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px;"><div>City</div><div>Product</div><div>Qty</div><div>Price</div><div>Action</div></div>';
+
+  orders.forEach(order => {
+    const icon = RESOURCE_CATALOG.find(r => r.key === order.Product)?.emoji || '?';
+    const name = RESOURCE_CATALOG.find(r => r.key === order.Product)?.name || order.Product;
+
+    html += `
+      <div style="font-size: 0.75rem; display: grid; grid-template-columns: 1fr 1fr 0.5fr 0.5fr 0.8fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #222;">
+        <div style="color: #FFD700;">${order.CityID.substring(0, 12)}</div>
+        <div>${icon} ${name}</div>
+        <div>${order.Quantity}</div>
+        <div style="color: #00FF88;">${order.Price}¢</div>
+        <button class="pixel-btn" style="padding: 4px 8px; font-size: 0.7rem;" onclick="buyOrder('${order.ID}', '${order.Product}', ${order.Quantity}, ${order.Price})">BUY</button>
+      </div>
+    `;
+  });
+
+  panel.innerHTML = html;
+}
+
+function buyOrder(orderId, product, quantity, price) {
+  if (!gameState.cityID) return;
+
+  const buyQty = prompt(`Buy how much ${product}? (available: ${quantity})`);
+  if (!buyQty || isNaN(buyQty) || buyQty <= 0) return;
+
+  const body = {
+    city_id: gameState.cityID,
+    product: product,
+    side: 'buy',
+    quantity: parseInt(buyQty),
+    price: price
+  };
+
+  fetch('/api/trade/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+    .then(r => r.json())
+    .then(order => {
+      addLog(`Buy order placed: ${buyQty}× ${product} @ ${price}¢`, 'good');
+      updateMarketOrders();
+    })
+    .catch(err => {
+      addLog(`Error placing order: ${err.message}`, 'bad');
+    });
+}
+
+// ─── Task 12: My Products Panel ───────────────────────────────────────────────
+
+const PRODUCT_BASE_PRICES = {
+  'wood': 5, 'stone': 5, 'iron': 8, 'copper': 7, 'silicon': 10,
+  'water': 2, 'wheat': 4, 'oil': 12, 'wool': 6, 'rubber': 8,
+  'steel_beams': 20, 'bricks': 10, 'tools': 25, 'wiring': 18,
+  'bread': 15, 'clothing': 20, 'gasoline': 14, 'furniture': 22,
+  'tires': 16, 'glass': 12,
+  'energy': 30, 'waste': 5, 'security': 25, 'education': 35,
+  'health': 40, 'transport': 28, 'entertainment': 20,
+  'logistics': 22, 'maintenance': 18, 'water_treatment': 15
+};
+
+function calculateSuggestedPrice(product, stock) {
+  const base = PRODUCT_BASE_PRICES[product] || 10;
+  const multiplier = Math.max(0.5, Math.min(3.0, 200 / Math.max(stock, 1)));
+  return Math.round(base * multiplier);
+}
+
+function renderMyProducts(resources) {
+  const panel = document.getElementById('my-products-list');
+
+  const productsToSell = RESOURCE_CATALOG.filter(r => (resources[r.key] || 0) > 0);
+
+  if (productsToSell.length === 0) {
+    panel.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">No products to sell</div>';
+    return;
+  }
+
+  let html = '<div style="font-size: 0.75rem; color: #888; display: grid; grid-template-columns: 1.5fr 0.5fr 1fr 0.8fr; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px;"><div>Product</div><div>Stock</div><div>Price</div><div>Action</div></div>';
+
+  productsToSell.forEach(product => {
+    const stock = resources[product.key] || 0;
+    const suggestedPrice = calculateSuggestedPrice(product.key, stock);
+
+    html += `
+      <div style="font-size: 0.75rem; display: grid; grid-template-columns: 1.5fr 0.5fr 1fr 0.8fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #222;">
+        <div>${product.emoji} ${product.name}</div>
+        <div style="color: #FFD700;">${stock}</div>
+        <div style="color: #4A9EFF;">${suggestedPrice}¢</div>
+        <button class="pixel-btn" style="padding: 4px 8px; font-size: 0.7rem;" onclick="sellProduct('${product.key}', ${stock}, ${suggestedPrice})">SELL</button>
+      </div>
+    `;
+  });
+
+  panel.innerHTML = html;
+}
+
+function sellProduct(product, maxStock, suggestedPrice) {
+  const qty = prompt(`Sell how much ${product}? (available: ${maxStock})`);
+  if (!qty || isNaN(qty) || qty <= 0 || qty > maxStock) return;
+
+  const price = prompt(`Price per unit? (suggested: ${suggestedPrice}¢)`, suggestedPrice);
+  if (!price || isNaN(price) || price <= 0) return;
+
+  const body = {
+    city_id: gameState.cityID,
+    product: product,
+    side: 'sell',
+    quantity: parseInt(qty),
+    price: parseInt(price)
+  };
+
+  fetch('/api/trade/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+    .then(r => r.json())
+    .then(order => {
+      addLog(`Sell order placed: ${qty}× ${product} @ ${price}¢`, 'good');
+      renderMyProducts(gameState.city?.resources || {});
+      updateMarketOrders();
+    })
+    .catch(err => {
+      addLog(`Error placing sell order: ${err.message}`, 'bad');
+    });
 }
 
 function addLog(text, className = '') {
