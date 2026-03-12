@@ -5,6 +5,14 @@
 
 let currentHeartbeat = null;
 let selectedProposalID = null;
+let prevCity = null;
+let prevHUD = {
+  population: 0,
+  treasury: 0,
+  happiness: 0
+};
+let hudAnimations = {};
+
 window.gameState = {
   playerID: null,
   cityID: null,
@@ -237,17 +245,89 @@ function submitDecision() {
 
 // ─── Event Log ───────────────────────────────────────────────────────────────
 
+function animateCounter(elementId, fromValue, toValue, duration = 600) {
+  if (hudAnimations[elementId]) {
+    cancelAnimationFrame(hudAnimations[elementId].frameId);
+  }
+
+  const element = document.getElementById(elementId);
+  const startTime = performance.now();
+  const difference = toValue - fromValue;
+  const originalColor = element.style.color || getComputedStyle(element).color;
+
+  const animate = (currentTime) => {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = 1 - (1 - progress) * (1 - progress); // ease-out-quad
+
+    const current = Math.round(fromValue + difference * easeProgress);
+    element.textContent = current.toLocaleString();
+
+    if (elapsed < 300) {
+      element.style.color = '#FFD700';
+    } else {
+      element.style.color = originalColor;
+    }
+
+    if (progress < 1) {
+      hudAnimations[elementId].frameId = requestAnimationFrame(animate);
+    } else {
+      delete hudAnimations[elementId];
+      element.style.color = originalColor;
+    }
+  };
+
+  hudAnimations[elementId] = { frameId: null };
+  hudAnimations[elementId].frameId = requestAnimationFrame(animate);
+}
+
+function renderDelta(current, previous) {
+  const delta = current - previous;
+  if (delta === 0) return '—';
+  const arrow = delta > 0 ? '↑' : '↓';
+  const color = delta > 0 ? '#00FF88' : '#FF4444';
+  const sign = delta > 0 ? '+' : '';
+  return `<span style="color: ${color}; margin-left: 8px;">${arrow}${sign}${delta}</span>`;
+}
+
 function updateHUD(city) {
   if (!city) return;
   console.log('[HUD] Updating with city data:', city.name, city.resources);
+
+  const newPop = city.population?.total || 0;
+  const newTreasury = city.treasury || 0;
+  const newHappy = city.happiness || 0;
+
+  // Animate population
+  if (newPop !== prevHUD.population) {
+    animateCounter('hud-pop', prevHUD.population, newPop);
+    prevHUD.population = newPop;
+  }
+  const popDelta = renderDelta(newPop, prevCity?.population?.total || 0);
+  document.getElementById('hud-pop').innerHTML = `${newPop.toLocaleString()} ${popDelta}`;
+
+  // Animate treasury
+  if (newTreasury !== prevHUD.treasury) {
+    animateCounter('hud-treasury', prevHUD.treasury, newTreasury);
+    prevHUD.treasury = newTreasury;
+  }
+  const treasuryDelta = renderDelta(newTreasury, prevCity?.treasury || 0);
+  document.getElementById('hud-treasury').innerHTML = `${newTreasury.toLocaleString()} ¢ ${treasuryDelta}`;
+
+  // Animate happiness
+  if (newHappy !== prevHUD.happiness) {
+    animateCounter('hud-happy', prevHUD.happiness, newHappy);
+    prevHUD.happiness = newHappy;
+  }
+  const happyDelta = renderDelta(newHappy, prevCity?.happiness || 0);
+  document.getElementById('hud-happy').innerHTML = `${newHappy.toFixed(1)}% ${happyDelta}`;
+
+  // Rest of updateHUD (existing code for tax, round, etc.)
   document.getElementById('hud-city').textContent = city.name || '—';
-  document.getElementById('hud-pop').textContent = (city.population?.total || 0).toLocaleString();
-  document.getElementById('hud-happy').textContent = (city.happiness || 0).toFixed(1) + '%';
-  document.getElementById('hud-treasury').textContent = (city.treasury || 0).toLocaleString() + ' ¢';
   document.getElementById('hud-tax').textContent = (city.tax_rate || 0).toFixed(1) + '%';
   document.getElementById('hud-round').textContent = city.round || '0';
 
-  // Resources
+  // Resources (existing)
   const res = city.resources || {};
   const resContainer = document.getElementById('hud-resources');
   resContainer.innerHTML = `
@@ -256,6 +336,9 @@ function updateHUD(city) {
     <span class="resource-badge res-materials">MATS: ${res.materials || 0}</span>
     ${res.medicines ? `<span class="resource-badge res-medicines">MEDS: ${res.medicines}</span>` : ''}
   `;
+
+  // Update prevCity for next delta calculation
+  prevCity = city;
 }
 
 function addLog(text, className = '') {
