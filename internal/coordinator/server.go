@@ -66,6 +66,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	mux.HandleFunc("/api/game/state", s.handleGameState)
 	mux.HandleFunc("/api/decision", s.handleDecision)
 	mux.HandleFunc("/api/trade", s.handleTrade)
+	mux.HandleFunc("/api/trade/orders", s.handleListOrders)
 	mux.HandleFunc("/api/cities", s.handleCities)
 	mux.HandleFunc("/api/debug/heartbeat", s.handleDebugHeartbeat)
 
@@ -263,6 +264,20 @@ func (s *Server) handleTrade(w http.ResponseWriter, r *http.Request) {
 		"accepted": true,
 		"order_id": order.ID,
 	})
+}
+
+func (s *Server) handleListOrders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	orders := s.tradeEngine.ListPendingOrders()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(orders); err != nil {
+		log.Printf("[Trade] Error encoding orders: %v", err)
+	}
 }
 
 func (s *Server) handleDebugHeartbeat(w http.ResponseWriter, r *http.Request) {
