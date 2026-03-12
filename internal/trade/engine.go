@@ -177,14 +177,14 @@ func (e *Engine) PendingOrders(cityID string) []*Order {
 	return result
 }
 
-// ListPendingOrders returns all currently pending orders
-func (e *Engine) ListPendingOrders() []Order {
+// AllPendingOrders returns all currently pending orders globally.
+func (e *Engine) AllPendingOrders() []*Order {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	var result []Order
+	result := make([]*Order, 0, len(e.orders))
 	for _, o := range e.orders {
 		if o.Status == "pending" {
-			result = append(result, *o)
+			result = append(result, o)
 		}
 	}
 	return result
