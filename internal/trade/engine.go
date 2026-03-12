@@ -177,8 +177,8 @@ func (e *Engine) PendingOrders(cityID string) []*Order {
 	return result
 }
 
-// AllPendingOrders returns all currently pending orders globally.
-func (e *Engine) AllPendingOrders() []*Order {
+// ListPendingOrders returns all currently pending orders globally.
+func (e *Engine) ListPendingOrders() []*Order {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	result := make([]*Order, 0, len(e.orders))
