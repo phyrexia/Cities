@@ -177,6 +177,19 @@ func (e *Engine) PendingOrders(cityID string) []*Order {
 	return result
 }
 
+// ListPendingOrders returns all currently pending orders
+func (e *Engine) ListPendingOrders() []Order {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	var result []Order
+	for _, o := range e.orders {
+		if o.Status == "pending" {
+			result = append(result, *o)
+		}
+	}
+	return result
+}
+
 func hasProduct(c *city.City, productID string) bool {
 	for _, p := range c.Products {
 		if p == productID {
