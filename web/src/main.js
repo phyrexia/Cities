@@ -13,6 +13,44 @@ let prevHUD = {
 };
 let hudAnimations = {};
 
+const RESOURCE_CATALOG = [
+  // Tier 1
+  { key: 'wood',           emoji: '🪵', name: 'Madera',        tier: 1 },
+  { key: 'stone',          emoji: '🪨', name: 'Piedra',        tier: 1 },
+  { key: 'iron',           emoji: '⛓️', name: 'Hierro',        tier: 1 },
+  { key: 'copper',         emoji: '🥉', name: 'Cobre',         tier: 1 },
+  { key: 'silicon',        emoji: '⏳', name: 'Silicio',       tier: 1 },
+  { key: 'water',          emoji: '💧', name: 'Agua',          tier: 1 },
+  { key: 'wheat',          emoji: '🌾', name: 'Trigo',         tier: 1 },
+  { key: 'oil',            emoji: '🛢️', name: 'Petróleo',      tier: 1 },
+  { key: 'wool',           emoji: '🐑', name: 'Lana',          tier: 1 },
+  { key: 'rubber',         emoji: '🌳', name: 'Caucho',        tier: 1 },
+  // Tier 2 — Goods
+  { key: 'steel_beams',    emoji: '🏗️', name: 'Vigas',         tier: 2 },
+  { key: 'bricks',         emoji: '🧱', name: 'Ladrillos',     tier: 2 },
+  { key: 'tools',          emoji: '🛠️', name: 'Herramientas',  tier: 2 },
+  { key: 'wiring',         emoji: '🔌', name: 'Cableado',      tier: 2 },
+  { key: 'bread',          emoji: '🍞', name: 'Pan',           tier: 2 },
+  { key: 'clothing',       emoji: '👕', name: 'Ropa',          tier: 2 },
+  { key: 'gasoline',       emoji: '⛽', name: 'Gasolina',      tier: 2 },
+  { key: 'furniture',      emoji: '🪑', name: 'Muebles',       tier: 2 },
+  { key: 'tires',          emoji: '🛞', name: 'Neumáticos',    tier: 2 },
+  { key: 'glass',          emoji: '🍷', name: 'Vidrio',        tier: 2 },
+  // Tier 2 — Services
+  { key: 'energy',         emoji: '⚡', name: 'Energía',       tier: 2 },
+  { key: 'waste',          emoji: '🗑️', name: 'Basura',        tier: 2 },
+  { key: 'security',       emoji: '👮', name: 'Seguridad',     tier: 2 },
+  { key: 'education',      emoji: '🎒', name: 'Educación',     tier: 2 },
+  { key: 'health',         emoji: '🚑', name: 'Salud',         tier: 2 },
+  { key: 'transport',      emoji: '🚌', name: 'Transporte',    tier: 2 },
+  { key: 'entertainment',  emoji: '📻', name: 'Radio',         tier: 2 },
+  { key: 'logistics',      emoji: '📦', name: 'Logística',     tier: 2 },
+  { key: 'maintenance',    emoji: '🧹', name: 'Mantenimiento', tier: 2 },
+  { key: 'water_treatment',emoji: '🚽', name: 'Agua Trat.',    tier: 2 },
+];
+
+let prevResources = {};
+
 window.gameState = {
   playerID: null,
   cityID: null,
@@ -290,6 +328,53 @@ function renderDelta(current, previous) {
   return `<span style="color: ${color}; margin-left: 8px;">${arrow}${sign}${delta}</span>`;
 }
 
+function updateResourcesPanel(resources) {
+  const panel = document.getElementById('resources-list');
+  const tier1 = RESOURCE_CATALOG.filter(r => r.tier === 1);
+  const tier2 = RESOURCE_CATALOG.filter(r => r.tier === 2);
+
+  let html = '';
+
+  // Tier 1
+  html += '<div style="color: #888; font-size: 0.75rem; margin-bottom: 8px; letter-spacing: 1px;">TIER 1</div>';
+  tier1.forEach(resource => {
+    const qty = resources[resource.key] || 0;
+    const prev = prevResources[resource.key] || 0;
+    const delta = renderDelta(qty, prev);
+    const opacity = qty === 0 ? 'opacity: 0.4;' : '';
+
+    html += `
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 6px; ${opacity}">
+        <span>${resource.emoji} ${resource.name}</span>
+        <span style="color: #FFD700;">${qty} ${delta}</span>
+      </div>
+    `;
+  });
+
+  // Tier 2
+  html += '<div style="color: #888; font-size: 0.75rem; margin-top: 12px; margin-bottom: 8px; letter-spacing: 1px;">TIER 2</div>';
+  tier2.forEach(resource => {
+    const qty = resources[resource.key] || 0;
+    const prev = prevResources[resource.key] || 0;
+    const delta = renderDelta(qty, prev);
+    const opacity = qty === 0 ? 'opacity: 0.4;' : '';
+
+    html += `
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 6px; ${opacity}">
+        <span>${resource.emoji} ${resource.name}</span>
+        <span style="color: #FFD700;">${qty} ${delta}</span>
+      </div>
+    `;
+  });
+
+  panel.innerHTML = html;
+
+  // Update previous values
+  RESOURCE_CATALOG.forEach(r => {
+    prevResources[r.key] = resources[r.key] || 0;
+  });
+}
+
 function updateHUD(city) {
   if (!city) return;
   console.log('[HUD] Updating with city data:', city.name, city.resources);
@@ -339,6 +424,21 @@ function updateHUD(city) {
 
   // Update prevCity for next delta calculation
   prevCity = city;
+
+  // Update resources panel
+  updateResourcesPanel(res);
+}
+
+function renderMyProducts(resources) {
+  // Will implement in Task 12
+  const panel = document.getElementById('my-products-list');
+  panel.innerHTML = '<div style="color: #666; text-align: center;">Loading...</div>';
+}
+
+async function updateMarketOrders() {
+  // Will implement in Task 11
+  const panel = document.getElementById('market-orders-list');
+  panel.innerHTML = '<div style="color: #666; text-align: center;">Loading market...</div>';
 }
 
 function addLog(text, className = '') {
