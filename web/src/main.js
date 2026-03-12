@@ -160,10 +160,19 @@ function showGame() {
 // ─── Phaser Game ─────────────────────────────────────────────────────────────
 
 function initPhaser() {
+  function getCanvasSize() {
+    const isMobile = window.innerWidth < 768;
+    const width = isMobile ? window.innerWidth : window.innerWidth - 300;
+    const height = isMobile ? Math.floor(window.innerHeight * 0.4) : Math.floor(window.innerHeight * 0.55);
+    return { width: Math.max(width, 480), height: Math.max(height, 300) };
+  }
+
+  const size = getCanvasSize();
+
   const config = {
     type: Phaser.CANVAS,
-    width: Math.min(window.innerWidth, 800),
-    height: 400,
+    width: size.width,
+    height: size.height,
     canvas: document.getElementById('phaser-canvas'),
     backgroundColor: '#0a0a0f',
     pixelArt: true,
@@ -172,6 +181,12 @@ function initPhaser() {
   };
 
   window.phaserGame = new Phaser.Game(config);
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    const newSize = getCanvasSize();
+    window.phaserGame.scale.resize(newSize.width, newSize.height);
+  });
 }
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
