@@ -262,7 +262,8 @@ func (pe *PopulationEngine) recomputeTotals(c *City) {
 		c.Population.FounderDescendants = 0
 	}
 
-	c.Population.Total = c.Population.Workers + c.Population.Families +
+	c.Population.Total = c.Population.Founders + c.Population.FounderDescendants +
+		c.Population.Workers + c.Population.Families +
 		c.Population.Entrepreneurs + c.Population.Students + c.Population.Homeless
 }
 
