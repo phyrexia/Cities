@@ -181,7 +181,7 @@ function selectProposal(proposalID, cardEl) {
   submitBtn.style.display = 'block';
   submitBtn.onclick = () => {
     const payload = {
-      heartbeat_id: gameState.currentHeartbeatID,
+      heartbeat_id: currentHeartbeat.id,
       initiative_id: proposalID
     };
     window.citiesWS.send('decision', payload);
