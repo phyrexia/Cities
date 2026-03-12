@@ -66,7 +66,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	mux.HandleFunc("/api/game/state", s.handleGameState)
 	mux.HandleFunc("/api/decision", s.handleDecision)
 	mux.HandleFunc("/api/trade", s.handleTrade)
-	mux.HandleFunc("/api/trade/orders", s.handleListOrders)
+	mux.HandleFunc("/api/trade/orders", s.handleTradeOrders)
 	mux.HandleFunc("/api/cities", s.handleCities)
 	mux.HandleFunc("/api/debug/heartbeat", s.handleDebugHeartbeat)
 
@@ -277,6 +277,49 @@ func (s *Server) handleListOrders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(orders); err != nil {
 		log.Printf("[Trade] Error encoding orders: %v", err)
+	}
+}
+
+func (s *Server) handlePlaceOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		CityID   string `json:"city_id"`
+		Product  string `json:"product"`
+		Side     string `json:"side"` // "buy" or "sell"
+		Quantity int    `json:"quantity"`
+		Price    int    `json:"price"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Place order in engine
+	placedOrder, err := s.tradeEngine.PlaceOrder(
+		req.CityID, "", req.Product,
+		req.Quantity, int64(req.Price), trade.Direction(req.Side),
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(placedOrder)
+}
+
+func (s *Server) handleTradeOrders(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		s.handleListOrders(w, r)
+	} else if r.Method == http.MethodPost {
+		s.handlePlaceOrder(w, r)
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
