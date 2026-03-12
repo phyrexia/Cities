@@ -65,7 +65,7 @@ async function startGame() {
 
 function showGame() {
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('game-container').style.display = 'block';
+  document.getElementById('app-grid').style.display = 'block';
   document.getElementById('hud').style.display = 'block';
 
   initPhaser();
