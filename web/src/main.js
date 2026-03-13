@@ -13,14 +13,38 @@ let prevHUD = {
 };
 let hudAnimations = {};
 
-// RESOURCE_CATALOG maps internal city resources to tradeable products
+// Internal resources that cities generate
+const INTERNAL_RESOURCES = {
+  'materials': { emoji: '📦', name: 'Materiales' },
+  'metal': { emoji: '⛓️', name: 'Metal' },
+  'food': { emoji: '🌾', name: 'Alimentos' },
+  'medicines': { emoji: '💊', name: 'Medicinas' }
+};
+
+// What products you can sell from each internal resource
+const SELLABLE_PRODUCTS = {
+  'materials': [
+    { id: 'wood', emoji: '🪵', name: 'Madera' },
+    { id: 'stone', emoji: '🪨', name: 'Piedra' }
+  ],
+  'metal': [
+    { id: 'iron', emoji: '⛓️', name: 'Hierro' },
+    { id: 'copper', emoji: '🥉', name: 'Cobre' }
+  ],
+  'food': [
+    { id: 'grain', emoji: '🌾', name: 'Grano' }
+  ],
+  'medicines': [
+    { id: 'water', emoji: '💧', name: 'Agua Medicina' }
+  ]
+};
+
+// For backward compatibility
 const RESOURCE_CATALOG = [
-  { key: 'materials', sellAs: 'wood',   emoji: '🪵', name: 'Madera',        tier: 1 },
-  { key: 'materials', sellAs: 'stone',  emoji: '🪨', name: 'Piedra',        tier: 1 },
-  { key: 'metal',     sellAs: 'iron',   emoji: '⛓️', name: 'Hierro',        tier: 1 },
-  { key: 'metal',     sellAs: 'copper', emoji: '🥉', name: 'Cobre',         tier: 1 },
-  { key: 'food',      sellAs: 'grain',  emoji: '🌾', name: 'Grano',         tier: 1 },
-  { key: 'medicines', sellAs: 'water',  emoji: '💧', name: 'Agua Medicina', tier: 1 },
+  { key: 'materials', emoji: '📦', name: 'Materiales', tier: 1 },
+  { key: 'metal', emoji: '⛓️', name: 'Metal', tier: 1 },
+  { key: 'food', emoji: '🌾', name: 'Alimentos', tier: 1 },
+  { key: 'medicines', emoji: '💊', name: 'Medicinas', tier: 1 }
 ];
 
 let prevResources = {};
@@ -357,34 +381,17 @@ function updateResourcesPanel(resources) {
   console.log('[RESOURCES] Updating panel with:', resources);
   const panel = document.getElementById('resources-list');
 
-  // Get unique resource types (materials, metal, food, medicines)
-  const uniqueResources = {};
-  RESOURCE_CATALOG.forEach(r => {
-    if (!uniqueResources[r.key]) {
-      uniqueResources[r.key] = r;
-    }
-  });
-
   let html = '';
 
-  // Show resources grouped by internal type
-  Object.values(uniqueResources).forEach(resource => {
-    const qty = resources[resource.key] || 0;
-    const prev = prevResources[resource.key] || 0;
+  // Show internal resources
+  Object.entries(INTERNAL_RESOURCES).forEach(([key, display]) => {
+    const qty = resources[key] || 0;
+    const prev = prevResources[key] || 0;
     const delta = renderDelta(qty, prev);
     const isChanged = qty !== prev;
 
     const highlight = isChanged ? 'background: #2a2a3a; padding: 2px 4px; border-radius: 2px; font-weight: bold;' : '';
     const textColor = isChanged && qty > prev ? '#00FF88' : isChanged && qty < prev ? '#FF4444' : '#FFD700';
-
-    // Map to display name
-    const displayMap = {
-      'materials': { emoji: '📦', name: 'Materiales' },
-      'metal': { emoji: '⛓️', name: 'Metal' },
-      'food': { emoji: '🌾', name: 'Alimentos' },
-      'medicines': { emoji: '💊', name: 'Medicinas' }
-    };
-    const display = displayMap[resource.key] || { emoji: '❓', name: resource.key };
 
     html += `
       <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; margin-bottom: 10px;">
@@ -393,14 +400,11 @@ function updateResourcesPanel(resources) {
         <span style="color: #666; margin-left: 6px;">${delta}</span>
       </div>
     `;
+
+    prevResources[key] = qty;
   });
 
   panel.innerHTML = html;
-
-  // Update previous values
-  RESOURCE_CATALOG.forEach(r => {
-    prevResources[r.key] = resources[r.key] || 0;
-  });
 }
 
 // ─── City Needs Panel ─────────────────────────────────────────────────────────
@@ -661,29 +665,34 @@ function renderMyProducts(resources) {
   const panel = document.getElementById('my-products-list');
   console.log('[MY PRODUCTS] Rendering with resources:', resources);
 
-  const productsToSell = RESOURCE_CATALOG.filter(r => (resources[r.key] || 0) > 0);
-  console.log('[MY PRODUCTS] Products to sell:', productsToSell);
-
-  if (productsToSell.length === 0) {
-    panel.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">No products to sell</div>';
-    return;
-  }
-
   let html = '<div style="font-size: 0.75rem; color: #888; display: grid; grid-template-columns: 1.5fr 0.5fr 1fr 0.8fr; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px;"><div>Product</div><div>Stock</div><div>Price</div><div>Action</div></div>';
 
-  productsToSell.forEach(product => {
-    const stock = resources[product.key] || 0;
-    const suggestedPrice = calculateSuggestedPrice(product.sellAs, stock);
+  let hasProducts = false;
 
-    html += `
-      <div style="font-size: 0.75rem; display: grid; grid-template-columns: 1.5fr 0.5fr 1fr 0.8fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #222;">
-        <div>${product.emoji} ${product.name}</div>
-        <div style="color: #FFD700;">${stock}</div>
-        <div style="color: #4A9EFF;">${suggestedPrice}¢</div>
-        <button class="pixel-btn" style="padding: 4px 8px; font-size: 0.7rem;" onclick="sellProduct('${product.sellAs}', '${product.name}', ${stock}, ${suggestedPrice})">SELL</button>
-      </div>
-    `;
+  // Show sellable products grouped by internal resource
+  Object.entries(SELLABLE_PRODUCTS).forEach(([resourceKey, products]) => {
+    const stock = resources[resourceKey] || 0;
+    if (stock === 0) return; // Skip if no stock
+
+    hasProducts = true;
+
+    products.forEach(product => {
+      const suggestedPrice = calculateSuggestedPrice(product.id, stock);
+
+      html += `
+        <div style="font-size: 0.75rem; display: grid; grid-template-columns: 1.5fr 0.5fr 1fr 0.8fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #222;">
+          <div>${product.emoji} ${product.name}</div>
+          <div style="color: #FFD700;">${stock}</div>
+          <div style="color: #4A9EFF;">${suggestedPrice}¢</div>
+          <button class="pixel-btn" style="padding: 4px 8px; font-size: 0.7rem;" onclick="sellProduct('${product.id}', '${product.name}', ${stock}, ${suggestedPrice})">SELL</button>
+        </div>
+      `;
+    });
   });
+
+  if (!hasProducts) {
+    html = '<div style="color: #666; text-align: center; padding: 20px;">No products to sell</div>';
+  }
 
   panel.innerHTML = html;
 }
