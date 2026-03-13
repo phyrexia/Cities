@@ -14,39 +14,11 @@ let prevHUD = {
 let hudAnimations = {};
 
 const RESOURCE_CATALOG = [
-  // Tier 1
-  { key: 'wood',           emoji: '🪵', name: 'Madera',        tier: 1 },
-  { key: 'stone',          emoji: '🪨', name: 'Piedra',        tier: 1 },
-  { key: 'iron',           emoji: '⛓️', name: 'Hierro',        tier: 1 },
-  { key: 'copper',         emoji: '🥉', name: 'Cobre',         tier: 1 },
-  { key: 'silicon',        emoji: '⏳', name: 'Silicio',       tier: 1 },
-  { key: 'water',          emoji: '💧', name: 'Agua',          tier: 1 },
-  { key: 'wheat',          emoji: '🌾', name: 'Trigo',         tier: 1 },
-  { key: 'oil',            emoji: '🛢️', name: 'Petróleo',      tier: 1 },
-  { key: 'wool',           emoji: '🐑', name: 'Lana',          tier: 1 },
-  { key: 'rubber',         emoji: '🌳', name: 'Caucho',        tier: 1 },
-  // Tier 2 — Goods
-  { key: 'steel_beams',    emoji: '🏗️', name: 'Vigas',         tier: 2 },
-  { key: 'bricks',         emoji: '🧱', name: 'Ladrillos',     tier: 2 },
-  { key: 'tools',          emoji: '🛠️', name: 'Herramientas',  tier: 2 },
-  { key: 'wiring',         emoji: '🔌', name: 'Cableado',      tier: 2 },
-  { key: 'bread',          emoji: '🍞', name: 'Pan',           tier: 2 },
-  { key: 'clothing',       emoji: '👕', name: 'Ropa',          tier: 2 },
-  { key: 'gasoline',       emoji: '⛽', name: 'Gasolina',      tier: 2 },
-  { key: 'furniture',      emoji: '🪑', name: 'Muebles',       tier: 2 },
-  { key: 'tires',          emoji: '🛞', name: 'Neumáticos',    tier: 2 },
-  { key: 'glass',          emoji: '🍷', name: 'Vidrio',        tier: 2 },
-  // Tier 2 — Services
-  { key: 'energy',         emoji: '⚡', name: 'Energía',       tier: 2 },
-  { key: 'waste',          emoji: '🗑️', name: 'Basura',        tier: 2 },
-  { key: 'security',       emoji: '👮', name: 'Seguridad',     tier: 2 },
-  { key: 'education',      emoji: '🎒', name: 'Educación',     tier: 2 },
-  { key: 'health',         emoji: '🚑', name: 'Salud',         tier: 2 },
-  { key: 'transport',      emoji: '🚌', name: 'Transporte',    tier: 2 },
-  { key: 'entertainment',  emoji: '📻', name: 'Radio',         tier: 2 },
-  { key: 'logistics',      emoji: '📦', name: 'Logística',     tier: 2 },
-  { key: 'maintenance',    emoji: '🧹', name: 'Mantenimiento', tier: 2 },
-  { key: 'water_treatment',emoji: '🚽', name: 'Agua Trat.',    tier: 2 },
+  // Raw Materials (generados por el backend)
+  { key: 'materials',      emoji: '📦', name: 'Materiales',    tier: 1 },
+  { key: 'metal',          emoji: '⛓️', name: 'Metal',         tier: 1 },
+  { key: 'food',           emoji: '🌾', name: 'Alimentos',     tier: 1 },
+  { key: 'medicines',      emoji: '💊', name: 'Medicinas',     tier: 1 },
 ];
 
 let prevResources = {};
