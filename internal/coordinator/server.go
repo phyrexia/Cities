@@ -295,7 +295,9 @@ func (s *Server) handlePlaceOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
 		return
 	}
 
@@ -305,7 +307,9 @@ func (s *Server) handlePlaceOrder(w http.ResponseWriter, r *http.Request) {
 		req.Quantity, int64(req.Price), trade.Direction(req.Side),
 	)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 

@@ -601,7 +601,12 @@ function buyOrder(orderId, product, quantity, price) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        return r.json().then(e => Promise.reject(new Error(e.error || `HTTP ${r.status}`)));
+      }
+      return r.json();
+    })
     .then(order => {
       addLog(`Buy order placed: ${buyQty}× ${product} @ ${price}¢`, 'good');
       updateMarketOrders();
@@ -679,7 +684,12 @@ function sellProduct(product, maxStock, suggestedPrice) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        return r.json().then(e => Promise.reject(new Error(e.error || `HTTP ${r.status}`)));
+      }
+      return r.json();
+    })
     .then(order => {
       addLog(`Sell order placed: ${qty}× ${product} @ ${price}¢`, 'good');
       renderMyProducts(gameState.city?.resources || {});
