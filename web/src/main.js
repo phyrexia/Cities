@@ -209,6 +209,7 @@ function initWebSocket() {
       if (update && update.city) {
         gameState.city = update.city;
         updateHUD(update.city);
+        updateCityNeeds(update.city);
         updateMarketOrders();
         renderMyProducts(update.city.resources || {});
         addLog(`City updated — pop: ${update.city.population?.total || 0}`, 'good');
@@ -422,6 +423,100 @@ function updateResourcesPanel(resources) {
   });
 }
 
+// ─── City Needs Panel ─────────────────────────────────────────────────────────
+
+function updateCityNeeds(city) {
+  if (!city || !city.stats) {
+    document.getElementById('needs-list').innerHTML = '<div style="color: #666; padding: 20px;">No data</div>';
+    return;
+  }
+
+  const pop = city.population?.total || 0;
+  const happy = city.happiness || 0;
+  const unemploy = city.stats?.unemployment_rate || 0;
+  const health = city.stats?.health_level || 0;
+  const education = city.stats?.education_level || 0;
+  const innovation = city.stats?.innovation_index || 0;
+  const buildings = city.buildings?.length || 0;
+
+  // RSI (Resident Satisfaction Index) = Happiness
+  const rsi = happy.toFixed(0);
+  const rsiColor = happy >= 70 ? '#00FF88' : happy >= 40 ? '#FFD700' : '#FF4444';
+
+  // Housing need (1 house per 50 pop ideally)
+  const housesNeeded = Math.ceil(pop / 50);
+  const housesBuilt = buildings;
+  const housingOK = housesBuilt >= housesNeeded ? '✓' : '✗';
+
+  // Job need (1 job per 3 workers)
+  const workers = city.population?.workers || 0;
+  const jobsNeeded = Math.ceil(workers / 3);
+  const jobsColor = unemploy > 20 ? '#FF4444' : unemploy > 10 ? '#FFD700' : '#00FF88';
+
+  // Health indicator
+  const healthColor = health >= 60 ? '#00FF88' : health >= 30 ? '#FFD700' : '#FF4444';
+
+  // Education indicator
+  const educColor = education >= 60 ? '#00FF88' : education >= 30 ? '#FFD700' : '#FF4444';
+
+  const html = `
+    <div style="font-size: 0.8rem; color: #888; line-height: 1.8;">
+      <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #333;">
+        <div style="font-weight: bold; color: ${rsiColor}">RSI: ${rsi}%</div>
+        <div style="font-size: 0.7rem; color: #666;">Resident Satisfaction</div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Employment:</span>
+          <span style="color: ${jobsColor};">${unemploy.toFixed(0)}%</span>
+        </div>
+        <div style="font-size: 0.7rem; color: #666;">Need ${jobsNeeded} jobs</div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Houses:</span>
+          <span>${housesBuilt}/${housesNeeded} ${housingOK}</span>
+        </div>
+        <div style="font-size: 0.7rem; color: #666;">Built / Needed</div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Health:</span>
+          <span style="color: ${healthColor};">${health}%</span>
+        </div>
+        <div style="font-size: 0.7rem; color: #666;">City health level</div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Education:</span>
+          <span style="color: ${educColor};">${education}%</span>
+        </div>
+        <div style="font-size: 0.7rem; color: #666;">Population education</div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Innovation:</span>
+          <span>${innovation}</span>
+        </div>
+        <div style="font-size: 0.7rem; color: #666;">Tech index</div>
+      </div>
+
+      <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #333; font-size: 0.7rem; color: #666; line-height: 1.6;">
+        <div>🔴 Critical &lt;30%</div>
+        <div>🟡 Warning 30-60%</div>
+        <div>🟢 Good &gt;60%</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('needs-list').innerHTML = html;
+}
+
 function updateHUD(city) {
   if (!city) return;
   console.log('[HUD] Updating with city data:', city.name, city.resources);
@@ -474,6 +569,9 @@ function updateHUD(city) {
 
   // Update resources panel
   updateResourcesPanel(res);
+
+  // Update city needs panel
+  updateCityNeeds(city);
 }
 
 // ─── Task 11: Trade Market Polling & Order Book ──────────────────────────────

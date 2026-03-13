@@ -92,6 +92,19 @@ class GameScene extends Phaser.Scene {
         citizen.x = this.scale.width + 20;
       }
     });
+
+    // Animate vehicles on road
+    if (this.vehicles) {
+      this.vehicles.forEach((vehicle, i) => {
+        vehicle.x += vehicle.speed;
+        if (vehicle.x > this.scale.width + 20) {
+          vehicle.x = -20;
+        }
+        if (vehicle.x < -20) {
+          vehicle.x = this.scale.width + 20;
+        }
+      });
+    }
   }
 
   updateCity(city) {
@@ -161,7 +174,8 @@ class GameScene extends Phaser.Scene {
     const walkY = H * 0.60;
     const colors = [0xFFD700, 0x00FF88, 0x4A9EFF, 0xFF4444, 0xFF88AA];
 
-    for (let i = 0; i < 20; i++) {
+    // 50 citizens (can show up to 50 at once)
+    for (let i = 0; i < 50; i++) {
       const g = this.add.graphics();
       const color = colors[i % colors.length];
       g.fillStyle(color);
@@ -170,19 +184,49 @@ class GameScene extends Phaser.Scene {
       g.fillCircle(2, -3, 3); // head
 
       g.x = Phaser.Math.Between(0, W);
-      g.y = walkY + Phaser.Math.Between(-4, 4);
-      g.speed = (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.8);
+      g.y = walkY + Phaser.Math.Between(-6, 6);
+      g.speed = (Math.random() < 0.5 ? 1 : -1) * (0.5 + Math.random() * 1.2);
       g.setVisible(false);
 
       this.citizens.push(g);
     }
+
+    // Create vehicles (cars on the road)
+    this.vehicles = [];
+    const roadY = H * 0.58 + 6;
+    for (let i = 0; i < 6; i++) {
+      const car = this.add.graphics();
+      car.fillStyle(0xFF4444);
+      car.fillRect(0, 0, 12, 6); // car body
+      car.fillStyle(0x222222);
+      car.fillRect(2, -2, 4, 3); // window
+      car.fillStyle(0x000000);
+      car.fillCircle(2, 6, 1.5); // wheel
+      car.fillCircle(10, 6, 1.5); // wheel
+
+      car.x = Phaser.Math.Between(0, W);
+      car.y = roadY;
+      car.speed = (Math.random() < 0.5 ? 1 : -1) * (1.0 + Math.random() * 1.5);
+      car.setVisible(false);
+
+      this.vehicles.push(car);
+    }
   }
 
   _scaleCitizens(totalPop) {
-    const visibleCount = Math.min(20, Math.floor(totalPop / 50));
+    // 1 citizen per 20 population (more aggressive), up to 50
+    const visibleCount = Math.min(50, Math.floor(totalPop / 20));
     this.citizens.forEach((c, i) => {
       c.setVisible(i < visibleCount);
     });
+
+    // Show vehicles based on economic activity
+    const visibleVehicles = Math.min(6, Math.floor(totalPop / 100));
+    if (this.vehicles) {
+      this.vehicles.forEach((v, i) => {
+        v.setVisible(i < visibleVehicles);
+      });
+    }
   }
 
   _showWorldEvent(text) {
