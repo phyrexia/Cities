@@ -354,41 +354,24 @@ function renderDelta(current, previous) {
 function updateResourcesPanel(resources) {
   console.log('[RESOURCES] Updating panel with:', resources);
   const panel = document.getElementById('resources-list');
-  const tier1 = RESOURCE_CATALOG.filter(r => r.tier === 1);
-  const tier2 = RESOURCE_CATALOG.filter(r => r.tier === 2);
 
   let html = '';
 
-  // Tier 1
-  html += '<div style="color: #FFD700; font-size: 0.8rem; margin-bottom: 8px; letter-spacing: 2px; font-weight: bold;">TIER 1</div>';
-  tier1.forEach(resource => {
+  // Show all resources
+  RESOURCE_CATALOG.forEach(resource => {
     const qty = resources[resource.key] || 0;
     const prev = prevResources[resource.key] || 0;
     const delta = renderDelta(qty, prev);
-    const opacity = qty === 0 ? 'opacity: 0.3;' : '';
-    const highlight = qty > 0 && qty !== prev ? 'font-weight: bold; background: #2a2a3a; padding: 2px 4px; border-radius: 2px;' : '';
+    const isChanged = qty !== prev;
+
+    const highlight = isChanged ? 'background: #2a2a3a; padding: 2px 4px; border-radius: 2px; font-weight: bold;' : '';
+    const textColor = isChanged && qty > prev ? '#00FF88' : isChanged && qty < prev ? '#FF4444' : '#FFD700';
 
     html += `
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; margin-bottom: 8px; ${opacity}">
-        <span>${resource.emoji} ${resource.name}</span>
-        <span style="color: #FFD700; ${highlight}">${qty} ${delta}</span>
-      </div>
-    `;
-  });
-
-  // Tier 2
-  html += '<div style="color: #FFD700; font-size: 0.8rem; margin-top: 12px; margin-bottom: 8px; letter-spacing: 2px; font-weight: bold;">TIER 2</div>';
-  tier2.forEach(resource => {
-    const qty = resources[resource.key] || 0;
-    const prev = prevResources[resource.key] || 0;
-    const delta = renderDelta(qty, prev);
-    const opacity = qty === 0 ? 'opacity: 0.3;' : '';
-    const highlight = qty > 0 && qty !== prev ? 'font-weight: bold; background: #2a2a3a; padding: 2px 4px; border-radius: 2px;' : '';
-
-    html += `
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; margin-bottom: 8px; ${opacity}">
-        <span>${resource.emoji} ${resource.name}</span>
-        <span style="color: #FFD700; ${highlight}">${qty} ${delta}</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; margin-bottom: 10px;">
+        <span style="flex: 1;">${resource.emoji} ${resource.name}</span>
+        <span style="color: ${textColor}; ${highlight}">${qty}</span>
+        <span style="color: #666; margin-left: 6px;">${delta}</span>
       </div>
     `;
   });
