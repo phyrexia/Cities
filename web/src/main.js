@@ -309,6 +309,25 @@ function submitDecision() {
   selectedProposalID = null;
 }
 
+// ─── Dev: Manual Heartbeat Trigger ────────────────────────────────────────────
+
+async function triggerHeartbeat() {
+  try {
+    const response = await fetch('/api/debug/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (response.ok) {
+      addLog('Heartbeat triggered manually', 'good');
+    } else {
+      addLog(`Trigger failed: ${response.status}`, 'bad');
+    }
+  } catch (err) {
+    addLog(`Error triggering heartbeat: ${err.message}`, 'bad');
+  }
+}
+
 // ─── Event Log ───────────────────────────────────────────────────────────────
 
 function animateCounter(elementId, fromValue, toValue, duration = 600) {
