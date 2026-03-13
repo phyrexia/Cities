@@ -208,6 +208,8 @@ function initWebSocket() {
     .on('city_update', (update) => {
       if (update && update.city) {
         gameState.city = update.city;
+        console.log('[CITY_UPDATE] Resources received:', update.city.resources);
+        console.log('[CITY_UPDATE] Full city:', update.city);
         updateHUD(update.city);
         updateCityNeeds(update.city);
         updateMarketOrders();
@@ -378,6 +380,7 @@ function renderDelta(current, previous) {
 }
 
 function updateResourcesPanel(resources) {
+  console.log('[RESOURCES] Updating panel with:', resources);
   const panel = document.getElementById('resources-list');
   const tier1 = RESOURCE_CATALOG.filter(r => r.tier === 1);
   const tier2 = RESOURCE_CATALOG.filter(r => r.tier === 2);
