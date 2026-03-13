@@ -174,39 +174,41 @@ class GameScene extends Phaser.Scene {
     const walkY = H * 0.60;
     const colors = [0xFFD700, 0x00FF88, 0x4A9EFF, 0xFF4444, 0xFF88AA];
 
-    // 50 citizens (can show up to 50 at once)
+    // 50 citizens (can show up to 50 at once) — 2x larger for visibility
     for (let i = 0; i < 50; i++) {
       const g = this.add.graphics();
       const color = colors[i % colors.length];
       g.fillStyle(color);
-      g.fillRect(0, 0, 4, 8); // body
+      g.fillRect(0, 0, 8, 16); // body (2x larger)
       g.fillStyle(0xFFDDAA);
-      g.fillCircle(2, -3, 3); // head
+      g.fillCircle(4, -6, 6); // head (2x larger)
 
       g.x = Phaser.Math.Between(0, W);
-      g.y = walkY + Phaser.Math.Between(-6, 6);
-      g.speed = (Math.random() < 0.5 ? 1 : -1) * (0.5 + Math.random() * 1.2);
+      g.y = walkY + Phaser.Math.Between(-8, 8);
+      g.speed = (Math.random() < 0.5 ? 1 : -1) * (1.0 + Math.random() * 2.0); // 2x faster
+      g.setDepth(0);
       g.setVisible(false);
 
       this.citizens.push(g);
     }
 
-    // Create vehicles (cars on the road)
+    // Create vehicles (cars on the road) — 2x larger
     this.vehicles = [];
     const roadY = H * 0.58 + 6;
     for (let i = 0; i < 6; i++) {
       const car = this.add.graphics();
       car.fillStyle(0xFF4444);
-      car.fillRect(0, 0, 12, 6); // car body
+      car.fillRect(0, 0, 24, 12); // car body (2x larger)
       car.fillStyle(0x222222);
-      car.fillRect(2, -2, 4, 3); // window
+      car.fillRect(4, -4, 8, 6); // window (2x larger)
       car.fillStyle(0x000000);
-      car.fillCircle(2, 6, 1.5); // wheel
-      car.fillCircle(10, 6, 1.5); // wheel
+      car.fillCircle(4, 12, 3); // wheel (2x larger)
+      car.fillCircle(20, 12, 3); // wheel (2x larger)
 
       car.x = Phaser.Math.Between(0, W);
       car.y = roadY;
-      car.speed = (Math.random() < 0.5 ? 1 : -1) * (1.0 + Math.random() * 1.5);
+      car.speed = (Math.random() < 0.5 ? 1 : -1) * (2.0 + Math.random() * 3.0); // 2x faster
+      car.setDepth(-1); // Behind citizens
       car.setVisible(false);
 
       this.vehicles.push(car);

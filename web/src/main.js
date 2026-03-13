@@ -331,7 +331,7 @@ async function triggerHeartbeat() {
 
 // ─── Event Log ───────────────────────────────────────────────────────────────
 
-function animateCounter(elementId, fromValue, toValue, duration = 600) {
+function animateCounter(elementId, fromValue, toValue, duration = 1200) {
   if (hudAnimations[elementId]) {
     cancelAnimationFrame(hudAnimations[elementId].frameId);
   }
@@ -349,8 +349,9 @@ function animateCounter(elementId, fromValue, toValue, duration = 600) {
     const current = Math.round(fromValue + difference * easeProgress);
     element.textContent = current.toLocaleString();
 
-    if (elapsed < 300) {
-      element.style.color = '#FFD700';
+    // Highlight color during animation
+    if (elapsed < 600) {
+      element.style.color = difference > 0 ? '#00FF88' : '#FF4444';
     } else {
       element.style.color = originalColor;
     }
@@ -384,33 +385,35 @@ function updateResourcesPanel(resources) {
   let html = '';
 
   // Tier 1
-  html += '<div style="color: #888; font-size: 0.75rem; margin-bottom: 8px; letter-spacing: 1px;">TIER 1</div>';
+  html += '<div style="color: #FFD700; font-size: 0.8rem; margin-bottom: 8px; letter-spacing: 2px; font-weight: bold;">TIER 1</div>';
   tier1.forEach(resource => {
     const qty = resources[resource.key] || 0;
     const prev = prevResources[resource.key] || 0;
     const delta = renderDelta(qty, prev);
-    const opacity = qty === 0 ? 'opacity: 0.4;' : '';
+    const opacity = qty === 0 ? 'opacity: 0.3;' : '';
+    const highlight = qty > 0 && qty !== prev ? 'font-weight: bold; background: #2a2a3a; padding: 2px 4px; border-radius: 2px;' : '';
 
     html += `
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 6px; ${opacity}">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; margin-bottom: 8px; ${opacity}">
         <span>${resource.emoji} ${resource.name}</span>
-        <span style="color: #FFD700;">${qty} ${delta}</span>
+        <span style="color: #FFD700; ${highlight}">${qty} ${delta}</span>
       </div>
     `;
   });
 
   // Tier 2
-  html += '<div style="color: #888; font-size: 0.75rem; margin-top: 12px; margin-bottom: 8px; letter-spacing: 1px;">TIER 2</div>';
+  html += '<div style="color: #FFD700; font-size: 0.8rem; margin-top: 12px; margin-bottom: 8px; letter-spacing: 2px; font-weight: bold;">TIER 2</div>';
   tier2.forEach(resource => {
     const qty = resources[resource.key] || 0;
     const prev = prevResources[resource.key] || 0;
     const delta = renderDelta(qty, prev);
-    const opacity = qty === 0 ? 'opacity: 0.4;' : '';
+    const opacity = qty === 0 ? 'opacity: 0.3;' : '';
+    const highlight = qty > 0 && qty !== prev ? 'font-weight: bold; background: #2a2a3a; padding: 2px 4px; border-radius: 2px;' : '';
 
     html += `
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 6px; ${opacity}">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; margin-bottom: 8px; ${opacity}">
         <span>${resource.emoji} ${resource.name}</span>
-        <span style="color: #FFD700;">${qty} ${delta}</span>
+        <span style="color: #FFD700; ${highlight}">${qty} ${delta}</span>
       </div>
     `;
   });
@@ -426,16 +429,16 @@ function updateResourcesPanel(resources) {
 // ─── City Needs Panel ─────────────────────────────────────────────────────────
 
 function updateCityNeeds(city) {
-  if (!city || !city.stats) {
-    document.getElementById('needs-list').innerHTML = '<div style="color: #666; padding: 20px;">No data</div>';
+  if (!city) {
+    document.getElementById('needs-list').innerHTML = '<div style="color: #666; padding: 20px;">No city data</div>';
     return;
   }
 
   const pop = city.population?.total || 0;
-  const happy = city.happiness || 0;
+  const happy = city.happiness || 50; // default 50%
   const unemploy = city.stats?.unemployment_rate || 0;
-  const health = city.stats?.health_level || 0;
-  const education = city.stats?.education_level || 0;
+  const health = city.stats?.health_level || 50; // default 50%
+  const education = city.stats?.education_level || 50; // default 50%
   const innovation = city.stats?.innovation_index || 0;
   const buildings = city.buildings?.length || 0;
 
