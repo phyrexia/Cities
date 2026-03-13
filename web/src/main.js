@@ -13,12 +13,14 @@ let prevHUD = {
 };
 let hudAnimations = {};
 
+// RESOURCE_CATALOG maps internal city resources to tradeable products
 const RESOURCE_CATALOG = [
-  // Raw Materials (generados por el backend)
-  { key: 'materials',      emoji: '📦', name: 'Materiales',    tier: 1 },
-  { key: 'metal',          emoji: '⛓️', name: 'Metal',         tier: 1 },
-  { key: 'food',           emoji: '🌾', name: 'Alimentos',     tier: 1 },
-  { key: 'medicines',      emoji: '💊', name: 'Medicinas',     tier: 1 },
+  { key: 'materials', sellAs: 'wood',   emoji: '🪵', name: 'Madera',        tier: 1 },
+  { key: 'materials', sellAs: 'stone',  emoji: '🪨', name: 'Piedra',        tier: 1 },
+  { key: 'metal',     sellAs: 'iron',   emoji: '⛓️', name: 'Hierro',        tier: 1 },
+  { key: 'metal',     sellAs: 'copper', emoji: '🥉', name: 'Cobre',         tier: 1 },
+  { key: 'food',      sellAs: 'grain',  emoji: '🌾', name: 'Grano',         tier: 1 },
+  { key: 'medicines', sellAs: 'water',  emoji: '💧', name: 'Agua Medicina', tier: 1 },
 ];
 
 let prevResources = {};
@@ -355,10 +357,18 @@ function updateResourcesPanel(resources) {
   console.log('[RESOURCES] Updating panel with:', resources);
   const panel = document.getElementById('resources-list');
 
+  // Get unique resource types (materials, metal, food, medicines)
+  const uniqueResources = {};
+  RESOURCE_CATALOG.forEach(r => {
+    if (!uniqueResources[r.key]) {
+      uniqueResources[r.key] = r;
+    }
+  });
+
   let html = '';
 
-  // Show all resources
-  RESOURCE_CATALOG.forEach(resource => {
+  // Show resources grouped by internal type
+  Object.values(uniqueResources).forEach(resource => {
     const qty = resources[resource.key] || 0;
     const prev = prevResources[resource.key] || 0;
     const delta = renderDelta(qty, prev);
@@ -367,9 +377,18 @@ function updateResourcesPanel(resources) {
     const highlight = isChanged ? 'background: #2a2a3a; padding: 2px 4px; border-radius: 2px; font-weight: bold;' : '';
     const textColor = isChanged && qty > prev ? '#00FF88' : isChanged && qty < prev ? '#FF4444' : '#FFD700';
 
+    // Map to display name
+    const displayMap = {
+      'materials': { emoji: '📦', name: 'Materiales' },
+      'metal': { emoji: '⛓️', name: 'Metal' },
+      'food': { emoji: '🌾', name: 'Alimentos' },
+      'medicines': { emoji: '💊', name: 'Medicinas' }
+    };
+    const display = displayMap[resource.key] || { emoji: '❓', name: resource.key };
+
     html += `
       <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; margin-bottom: 10px;">
-        <span style="flex: 1;">${resource.emoji} ${resource.name}</span>
+        <span style="flex: 1;">${display.emoji} ${display.name}</span>
         <span style="color: ${textColor}; ${highlight}">${qty}</span>
         <span style="color: #666; margin-left: 6px;">${delta}</span>
       </div>
@@ -619,10 +638,17 @@ function buyOrder(orderId, product, quantity, price) {
 // ─── Task 12: My Products Panel ───────────────────────────────────────────────
 
 const PRODUCT_BASE_PRICES = {
-  'materials': 15,  // Raw materials from factories
-  'metal': 20,      // Refined metal from factories
-  'food': 10,       // Food from markets
-  'medicines': 50   // Medicines from labs (rare/valuable)
+  // Map from sellAs product IDs to base prices
+  'wood': 22,
+  'stone': 18,
+  'iron': 48,
+  'copper': 55,
+  'silicon': 65,
+  'water': 10,
+  'grain': 13,
+  'oil': 80,
+  'wool': 32,
+  'rubber': 40
 };
 
 function calculateSuggestedPrice(product, stock) {
@@ -647,14 +673,14 @@ function renderMyProducts(resources) {
 
   productsToSell.forEach(product => {
     const stock = resources[product.key] || 0;
-    const suggestedPrice = calculateSuggestedPrice(product.key, stock);
+    const suggestedPrice = calculateSuggestedPrice(product.sellAs, stock);
 
     html += `
       <div style="font-size: 0.75rem; display: grid; grid-template-columns: 1.5fr 0.5fr 1fr 0.8fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #222;">
         <div>${product.emoji} ${product.name}</div>
         <div style="color: #FFD700;">${stock}</div>
         <div style="color: #4A9EFF;">${suggestedPrice}¢</div>
-        <button class="pixel-btn" style="padding: 4px 8px; font-size: 0.7rem;" onclick="sellProduct('${product.key}', ${stock}, ${suggestedPrice})">SELL</button>
+        <button class="pixel-btn" style="padding: 4px 8px; font-size: 0.7rem;" onclick="sellProduct('${product.sellAs}', '${product.name}', ${stock}, ${suggestedPrice})">SELL</button>
       </div>
     `;
   });
@@ -662,8 +688,8 @@ function renderMyProducts(resources) {
   panel.innerHTML = html;
 }
 
-function sellProduct(product, maxStock, suggestedPrice) {
-  const qty = prompt(`Sell how much ${product}? (available: ${maxStock})`);
+function sellProduct(productId, productName, maxStock, suggestedPrice) {
+  const qty = prompt(`Sell how much ${productName}? (available: ${maxStock})`);
   if (!qty || isNaN(qty) || qty <= 0 || qty > maxStock) return;
 
   const price = prompt(`Price per unit? (suggested: ${suggestedPrice}¢)`, suggestedPrice);
@@ -671,7 +697,7 @@ function sellProduct(product, maxStock, suggestedPrice) {
 
   const body = {
     city_id: gameState.cityID,
-    product: product,
+    product: productId,
     side: 'sell',
     quantity: parseInt(qty),
     price: parseInt(price)
@@ -688,8 +714,8 @@ function sellProduct(product, maxStock, suggestedPrice) {
       }
       return r.json();
     })
-    .then(order => {
-      addLog(`Sell order placed: ${qty}× ${product} @ ${price}¢`, 'good');
+    .then(() => {
+      addLog(`Sell order placed: ${qty}× ${productName} @ ${price}¢`, 'good');
       renderMyProducts(gameState.city?.resources || {});
       updateMarketOrders();
     })
