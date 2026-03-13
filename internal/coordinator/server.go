@@ -275,9 +275,12 @@ func (s *Server) handleListOrders(w http.ResponseWriter, r *http.Request) {
 	orders := s.tradeEngine.ListPendingOrders()
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(orders); err != nil {
+	data, err := json.Marshal(orders)
+	if err != nil {
 		log.Printf("[Trade] Error encoding orders: %v", err)
+		return
 	}
+	w.Write(data)
 }
 
 func (s *Server) handlePlaceOrder(w http.ResponseWriter, r *http.Request) {
@@ -297,7 +300,7 @@ func (s *Server) handlePlaceOrder(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		w.Write([]byte(`{"error":"Invalid request body"}`))
 		return
 	}
 
@@ -309,12 +312,13 @@ func (s *Server) handlePlaceOrder(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		fmt.Fprintf(w, `{"error":"%s"}`, err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(placedOrder)
+	data, _ := json.Marshal(placedOrder)
+	w.Write(data)
 }
 
 func (s *Server) handleTradeOrders(w http.ResponseWriter, r *http.Request) {
@@ -338,9 +342,12 @@ func (s *Server) handleDebugHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	data, err := json.Marshal(v)
+	if err != nil {
 		log.Printf("[REST] encode error: %v", err)
+		return
 	}
+	w.Write(data)
 }
 
 // corsMiddleware adds CORS headers for browser access.
