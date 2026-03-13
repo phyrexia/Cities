@@ -619,14 +619,10 @@ function buyOrder(orderId, product, quantity, price) {
 // ─── Task 12: My Products Panel ───────────────────────────────────────────────
 
 const PRODUCT_BASE_PRICES = {
-  'wood': 5, 'stone': 5, 'iron': 8, 'copper': 7, 'silicon': 10,
-  'water': 2, 'wheat': 4, 'oil': 12, 'wool': 6, 'rubber': 8,
-  'steel_beams': 20, 'bricks': 10, 'tools': 25, 'wiring': 18,
-  'bread': 15, 'clothing': 20, 'gasoline': 14, 'furniture': 22,
-  'tires': 16, 'glass': 12,
-  'energy': 30, 'waste': 5, 'security': 25, 'education': 35,
-  'health': 40, 'transport': 28, 'entertainment': 20,
-  'logistics': 22, 'maintenance': 18, 'water_treatment': 15
+  'materials': 15,  // Raw materials from factories
+  'metal': 20,      // Refined metal from factories
+  'food': 10,       // Food from markets
+  'medicines': 50   // Medicines from labs (rare/valuable)
 };
 
 function calculateSuggestedPrice(product, stock) {
@@ -637,8 +633,10 @@ function calculateSuggestedPrice(product, stock) {
 
 function renderMyProducts(resources) {
   const panel = document.getElementById('my-products-list');
+  console.log('[MY PRODUCTS] Rendering with resources:', resources);
 
   const productsToSell = RESOURCE_CATALOG.filter(r => (resources[r.key] || 0) > 0);
+  console.log('[MY PRODUCTS] Products to sell:', productsToSell);
 
   if (productsToSell.length === 0) {
     panel.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">No products to sell</div>';
