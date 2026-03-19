@@ -73,6 +73,46 @@ type ActivePolicy struct {
 	ExpiresAt    int
 }
 
+type GameEvent struct {
+	ID          string        `json:"id"`
+	EventDefID  string        `json:"event_def_id"`
+	Category    string        `json:"category"`
+	Title       string        `json:"title"`
+	Description string        `json:"description"`
+	Options     []EventOption `json:"options"`
+	Urgency     int           `json:"urgency"`
+	FiredAt     int           `json:"fired_at"`
+	DefaultOpt  int           `json:"default_opt"`
+}
+
+type EventOption struct {
+	ID             string         `json:"id"`
+	Title          string         `json:"title"`
+	Description    string         `json:"description"`
+	FactionDeltas  map[string]int `json:"faction_deltas"`
+	ResourceDeltas map[string]int `json:"resource_deltas"`
+	StatDeltas     map[string]int `json:"stat_deltas"`
+	TreasuryDelta  int64          `json:"treasury_delta"`
+	HappinessDelta float64        `json:"happiness_delta"`
+	SpawnBuilding  string         `json:"spawn_building,omitempty"`
+	ChainEventID   string         `json:"chain_event_id,omitempty"`
+	ChainDelay     int            `json:"chain_delay,omitempty"`
+}
+
+type PendingChain struct {
+	EventDefID string `json:"event_def_id"`
+	FiresAt    int    `json:"fires_at"`
+	CausedBy   string `json:"caused_by"`
+}
+
+type DecisionRecord struct {
+	Round       int    `json:"round"`
+	EventTitle  string `json:"event_title"`
+	ChoiceTitle string `json:"choice_title"`
+	Outcome     string `json:"outcome"`
+	HasPending  bool   `json:"has_pending"`
+}
+
 // VacationMode holds the freeze state for a city.
 type VacationMode struct {
 	Active    bool      `json:"active"`
@@ -110,6 +150,11 @@ type City struct {
 
 	Stats          CityStats      `json:"stats"`
 	ActivePolicies []ActivePolicy `json:"active_policies"`
+	Factions        FactionSatisfaction `json:"factions"`
+	ActiveEvents    []GameEvent         `json:"active_events"`
+	PendingChains   []PendingChain      `json:"pending_chains"`
+	DecisionHistory []DecisionRecord    `json:"decision_history"`
+	Mood            string              `json:"mood"`
 	Vacation       VacationMode   `json:"vacation"`
 	Ruins          *RuinsData     `json:"ruins,omitempty"`
 
@@ -142,11 +187,16 @@ func New(cityName, mayorID, mayorName string) *City {
 		Treasury:  10000,
 		TaxRate:   20.0,
 		Buildings: starterBuildings(),
-		Products:  []string{"food", "clothing"},
+		Products:  []string{"food", "clothing", "grain", "wood", "stone", "education_svc"},
 		Resources: map[string]int{
 			"materials": 100,
 			"metal":     50,
 			"food":      200,
+			"wood":      80,
+			"stone":     60,
+			"water":     150,
+			"energy":    0,
+			"knowledge": 0,
 		},
 		TradeRoutes: []string{},
 		Stats: CityStats{
@@ -156,6 +206,7 @@ func New(cityName, mayorID, mayorName string) *City {
 			HealthLevel:      40,
 			PollutionLevel:   10,
 		},
+		Factions:       NewFactionSatisfaction(),
 		PeakPopulation: FounderCount,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
@@ -245,6 +296,8 @@ func starterBuildings() []Building {
 		{ID: uuid.NewString(), Type: BuildingHouse, Name: "Residential Area", Level: 1, Capacity: 350},
 		{ID: uuid.NewString(), Type: BuildingMarket, Name: "City Market", Level: 1},
 		{ID: uuid.NewString(), Type: BuildingSchool, Name: "Public School", Level: 1, Capacity: 200},
+		{ID: uuid.NewString(), Type: BuildingFactory, Name: "Small Workshop", Level: 1},
+		{ID: uuid.NewString(), Type: BuildingPolice, Name: "Town Watch", Level: 1},
 	}
 }
 
