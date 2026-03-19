@@ -63,6 +63,9 @@ class GameScene extends Phaser.Scene {
     // Citizen sprites (colored walking dots)
     this._createCitizens(W, H);
 
+    // Confetti pool (pre-created, hidden until needed)
+    this._createConfettiPool(W, H);
+
     // Register for city updates
     if (window.citiesWS) {
       window.citiesWS.on('city_update', (data) => {
@@ -128,7 +131,7 @@ class GameScene extends Phaser.Scene {
     document.getElementById('hud-round').textContent = this.round;
 
     // Rebuild buildings on screen
-    this._rebuildBuildings(city.buildings || []);
+    this._rebuildBuildings(city.buildings || [], city.stats?.pollution_level || 0);
 
     // Scale citizens to population
     this._scaleCitizens(city.population?.total || 0);
@@ -144,11 +147,10 @@ class GameScene extends Phaser.Scene {
     else skyColor = 0x333344;                   // dark stormy
     this.skyRect.setFillStyle(skyColor);
 
-    // Citizen speed based on happiness
+    // Citizen speed based on happiness (scale stored baseSpeed, no re-randomization)
     const speedMultiplier = happy > 70 ? 1.5 : happy > 40 ? 1.0 : 0.5;
     this.citizens.forEach(c => {
-      const baseSpeed = c.speed > 0 ? 1 : -1;
-      c.speed = baseSpeed * (0.5 + Math.random() * 1.5) * speedMultiplier;
+      c.speed = c.baseSpeed * speedMultiplier;
     });
 
     // Protest visuals when any faction <25
@@ -158,6 +160,7 @@ class GameScene extends Phaser.Scene {
       const lowFaction = factions.workers < 25 || factions.business < 25 || factions.families < 25 || (factions.greens_active && factions.greens < 25);
       if (lowFaction) {
         this.protestGroup = this.add.graphics();
+        this.protestGroup.setDepth(10);
         const px = W * 0.4;
         const py = H * 0.55;
         // Protest sign
@@ -172,23 +175,10 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Festival confetti when any faction >80
-    if (this.confettiEmitter) { this.confettiEmitter.forEach(p => { this.tweens.killTweensOf(p); p.destroy(); }); this.confettiEmitter = null; }
-    if (factions) {
+    // Festival confetti when any faction >80 (pool-based — no create/destroy per update)
+    if (factions && this.confettiPool) {
       const highFaction = factions.workers > 80 || factions.business > 80 || factions.families > 80 || (factions.greens_active && factions.greens > 80);
-      if (highFaction) {
-        this.confettiEmitter = [];
-        for (let i = 0; i < 15; i++) {
-          const dot = this.add.graphics();
-          const confettiColors = [0xFFD700, 0xFF4444, 0x00FF88, 0x4A9EFF, 0xFF88AA];
-          dot.fillStyle(confettiColors[i % confettiColors.length], 0.8);
-          dot.fillCircle(0, 0, 2);
-          dot.x = Phaser.Math.Between(0, W);
-          dot.y = Phaser.Math.Between(H * 0.2, H * 0.5);
-          this.confettiEmitter.push(dot);
-          this.tweens.add({ targets: dot, y: dot.y + 30, alpha: 0, duration: 2000 + Math.random() * 1000, repeat: -1, yoyo: true });
-        }
-      }
+      this.confettiPool.forEach(dot => dot.setVisible(highFaction));
     }
   }
 
@@ -214,7 +204,7 @@ class GameScene extends Phaser.Scene {
     return slots;
   }
 
-  _rebuildBuildings(buildings) {
+  _rebuildBuildings(buildings, pollution) {
     // Clear existing
     this.buildingGraphics.forEach(g => g.destroy());
     this.buildingGraphics = [];
@@ -223,7 +213,6 @@ class GameScene extends Phaser.Scene {
       if (i >= this.buildingSlots.length) return;
       const slot = this.buildingSlots[i];
       const scale = 1.5 + (building.level || 1) * 0.3;
-      const pollution = this.cityData?.stats?.pollution_level || 0;
       const g = PixelBuilding.draw(this, building.type, slot.x, slot.y - 40, scale, pollution);
       this.buildingGraphics.push(g);
 
@@ -252,7 +241,8 @@ class GameScene extends Phaser.Scene {
 
       g.x = Phaser.Math.Between(0, W);
       g.y = walkY + Phaser.Math.Between(-8, 8);
-      g.speed = (Math.random() < 0.5 ? 1 : -1) * (1.0 + Math.random() * 2.0); // 2x faster
+      g.baseSpeed = (Math.random() < 0.5 ? 1 : -1) * (1.0 + Math.random() * 2.0);
+      g.speed = g.baseSpeed;
       g.setDepth(0);
       g.setVisible(false);
 
@@ -295,6 +285,21 @@ class GameScene extends Phaser.Scene {
       this.vehicles.forEach((v, i) => {
         v.setVisible(i < visibleVehicles);
       });
+    }
+  }
+
+  _createConfettiPool(W, H) {
+    this.confettiPool = [];
+    const confettiColors = [0xFFD700, 0xFF4444, 0x00FF88, 0x4A9EFF, 0xFF88AA];
+    for (let i = 0; i < 15; i++) {
+      const dot = this.add.graphics();
+      dot.fillStyle(confettiColors[i % confettiColors.length], 0.8);
+      dot.fillCircle(0, 0, 2);
+      dot.x = Phaser.Math.Between(0, W);
+      dot.y = Phaser.Math.Between(H * 0.2, H * 0.5);
+      dot.setVisible(false);
+      this.confettiPool.push(dot);
+      this.tweens.add({ targets: dot, y: dot.y + 30, alpha: 0, duration: 2000 + Math.random() * 1000, repeat: -1, yoyo: true });
     }
   }
 
