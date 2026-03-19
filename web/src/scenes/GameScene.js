@@ -173,7 +173,7 @@ class GameScene extends Phaser.Scene {
     }
 
     // Festival confetti when any faction >80
-    if (this.confettiEmitter) { this.confettiEmitter.forEach(p => p.destroy()); this.confettiEmitter = null; }
+    if (this.confettiEmitter) { this.confettiEmitter.forEach(p => { this.tweens.killTweensOf(p); p.destroy(); }); this.confettiEmitter = null; }
     if (factions) {
       const highFaction = factions.workers > 80 || factions.business > 80 || factions.families > 80 || (factions.greens_active && factions.greens > 80);
       if (highFaction) {
