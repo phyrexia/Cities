@@ -158,7 +158,8 @@ type City struct {
 	Vacation       VacationMode   `json:"vacation"`
 	Ruins          *RuinsData     `json:"ruins,omitempty"`
 
-	PeakPopulation int `json:"peak_population"` // all-time max, tracked for leaderboard
+	PeakPopulation       int `json:"peak_population"`                          // all-time max, tracked for leaderboard
+	CollapsingStartRound int `json:"collapsing_start_round,omitempty"`
 
 	Round     int       `json:"round"`
 	CreatedAt time.Time `json:"created_at"`
@@ -279,15 +280,61 @@ func (c *City) CheckCollapse(round int) bool {
 	if c.Status == StatusRuins {
 		return false
 	}
+
+	// Foundation (1-8) and Growth (9-15): immune
+	if round <= 15 {
+		return false
+	}
+
+	// Count factions below thresholds
+	factionsBelow10 := 0
+	factionsBelow5 := 0
+	for _, v := range []int{c.Factions.Workers, c.Factions.Business, c.Factions.Families} {
+		if v < 10 { factionsBelow10++ }
+		if v < 5 { factionsBelow5++ }
+	}
+	if c.Factions.GreensActive {
+		if c.Factions.Greens < 10 { factionsBelow10++ }
+		if c.Factions.Greens < 5 { factionsBelow5++ }
+	}
+
+	shouldCollapse := false
+	if round <= 25 {
+		// Maturity: 2+ factions <10 OR treasury < -50k
+		shouldCollapse = factionsBelow10 >= 2 || c.Treasury < -50000
+	} else {
+		// No Safety Net: 1+ faction <5 OR treasury < -30k
+		shouldCollapse = factionsBelow5 >= 1 || c.Treasury < -30000
+	}
+
+	if shouldCollapse {
+		if c.Status != StatusCollapsing {
+			c.Status = StatusCollapsing
+			c.CollapsingStartRound = round
+			return false // grace period starts
+		}
+		grace := 3
+		if round > 25 { grace = 2 }
+		if round - c.CollapsingStartRound >= grace {
+			c.Collapse(round)
+			return true
+		}
+		return false // still in grace
+	}
+
+	// Recovered from collapsing
+	if c.Status == StatusCollapsing {
+		c.Status = StatusActive
+		c.CollapsingStartRound = 0
+	}
+
+	// Legacy: founders-only check
 	nonFounderPop := c.Population.Total - c.Population.Founders
-	if c.Round > 5 && nonFounderPop <= 0 && c.Population.Founders > 0 {
-		// Only founders left — city collapses structurally
+	if round > 15 && nonFounderPop <= 0 && c.Population.Founders > 0 {
 		c.Collapse(round)
 		return true
 	}
-	if c.Treasury < BankruptcyThreshold {
-		c.Status = StatusCollapsing
-	}
+
 	return false
 }
 
