@@ -16,7 +16,7 @@ class GameScene extends Phaser.Scene {
     const H = this.scale.height;
 
     // Sky gradient background
-    this.add.rectangle(0, 0, W, H * 0.45, 0x1a1a3e).setOrigin(0, 0);
+    this.skyRect = this.add.rectangle(0, 0, W, H * 0.45, 0x1a1a3e).setOrigin(0, 0);
     this.add.rectangle(0, H * 0.45, W, H * 0.15, 0x2d5a27).setOrigin(0, 0); // grass strip
     this.add.rectangle(0, H * 0.60, W, H * 0.40, 0x1a1208).setOrigin(0, 0); // ground
 
@@ -62,6 +62,9 @@ class GameScene extends Phaser.Scene {
 
     // Citizen sprites (colored walking dots)
     this._createCitizens(W, H);
+
+    // Confetti pool (pre-created, hidden until needed)
+    this._createConfettiPool(W, H);
 
     // Register for city updates
     if (window.citiesWS) {
@@ -128,27 +131,80 @@ class GameScene extends Phaser.Scene {
     document.getElementById('hud-round').textContent = this.round;
 
     // Rebuild buildings on screen
-    this._rebuildBuildings(city.buildings || []);
+    this._rebuildBuildings(city.buildings || [], city.stats?.pollution_level || 0);
 
     // Scale citizens to population
     this._scaleCitizens(city.population?.total || 0);
+
+    // ── Reactive visuals ──────────────────────────────────────────────
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // Ambient sky color based on happiness
+    let skyColor;
+    if (happy > 70) skyColor = 0x4488cc;      // bright blue
+    else if (happy > 40) skyColor = 0x556677;  // grey-blue
+    else skyColor = 0x333344;                   // dark stormy
+    this.skyRect.setFillStyle(skyColor);
+
+    // Citizen speed based on happiness (scale stored baseSpeed, no re-randomization)
+    const speedMultiplier = happy > 70 ? 1.5 : happy > 40 ? 1.0 : 0.5;
+    this.citizens.forEach(c => {
+      c.speed = c.baseSpeed * speedMultiplier;
+    });
+
+    // Protest visuals when any faction <25
+    if (this.protestGroup) { this.protestGroup.destroy(); this.protestGroup = null; }
+    const factions = city.factions;
+    if (factions) {
+      const lowFaction = factions.workers < 25 || factions.business < 25 || factions.families < 25 || (factions.greens_active && factions.greens < 25);
+      if (lowFaction) {
+        this.protestGroup = this.add.graphics();
+        this.protestGroup.setDepth(10);
+        const px = W * 0.4;
+        const py = H * 0.55;
+        // Protest sign
+        this.protestGroup.fillStyle(0xFF4444);
+        this.protestGroup.fillRect(px, py - 20, 2, 15);
+        this.protestGroup.fillRect(px - 8, py - 25, 18, 10);
+        // Group of angry dots
+        for (let i = 0; i < 8; i++) {
+          this.protestGroup.fillStyle(0xFF4444);
+          this.protestGroup.fillCircle(px - 15 + i * 5, py - 2 + Math.random() * 6, 3);
+        }
+      }
+    }
+
+    // Festival confetti when any faction >80 (pool-based — no create/destroy per update)
+    if (factions && this.confettiPool) {
+      const highFaction = factions.workers > 80 || factions.business > 80 || factions.families > 80 || (factions.greens_active && factions.greens > 80);
+      this.confettiPool.forEach(dot => dot.setVisible(highFaction));
+    }
   }
 
   _createBuildingSlots(W, H) {
     const groundY = H * 0.58;
-    return [
-      { x: W * 0.08, y: groundY },
-      { x: W * 0.18, y: groundY },
-      { x: W * 0.30, y: groundY },
-      { x: W * 0.43, y: groundY },
-      { x: W * 0.55, y: groundY },
-      { x: W * 0.67, y: groundY },
-      { x: W * 0.78, y: groundY },
-      { x: W * 0.88, y: groundY },
+    // Front row (road level)
+    const slots = [
+      { x: W * 0.05, y: groundY },
+      { x: W * 0.15, y: groundY },
+      { x: W * 0.26, y: groundY },
+      { x: W * 0.37, y: groundY },
+      { x: W * 0.48, y: groundY },
+      { x: W * 0.59, y: groundY },
+      { x: W * 0.70, y: groundY },
+      { x: W * 0.81, y: groundY },
+      { x: W * 0.91, y: groundY },
     ];
+    // Back row (behind, slightly higher — for cities with 10+ buildings)
+    const backY = groundY - H * 0.12;
+    for (let i = 0; i < 6; i++) {
+      slots.push({ x: W * (0.10 + i * 0.15), y: backY });
+    }
+    return slots;
   }
 
-  _rebuildBuildings(buildings) {
+  _rebuildBuildings(buildings, pollution) {
     // Clear existing
     this.buildingGraphics.forEach(g => g.destroy());
     this.buildingGraphics = [];
@@ -157,7 +213,7 @@ class GameScene extends Phaser.Scene {
       if (i >= this.buildingSlots.length) return;
       const slot = this.buildingSlots[i];
       const scale = 1.5 + (building.level || 1) * 0.3;
-      const g = PixelBuilding.draw(this, building.type, slot.x, slot.y - 40, scale);
+      const g = PixelBuilding.draw(this, building.type, slot.x, slot.y - 40, scale, pollution);
       this.buildingGraphics.push(g);
 
       // Building name label
@@ -172,7 +228,7 @@ class GameScene extends Phaser.Scene {
 
   _createCitizens(W, H) {
     const walkY = H * 0.60;
-    const colors = [0xFFD700, 0x00FF88, 0x4A9EFF, 0xFF4444, 0xFF88AA];
+    const colors = [0x4A9EFF, 0x4A9EFF, 0xFFD700, 0x00FF88, 0x00FF88, 0x88FF88];
 
     // 50 citizens (can show up to 50 at once) — 2x larger for visibility
     for (let i = 0; i < 50; i++) {
@@ -185,7 +241,8 @@ class GameScene extends Phaser.Scene {
 
       g.x = Phaser.Math.Between(0, W);
       g.y = walkY + Phaser.Math.Between(-8, 8);
-      g.speed = (Math.random() < 0.5 ? 1 : -1) * (1.0 + Math.random() * 2.0); // 2x faster
+      g.baseSpeed = (Math.random() < 0.5 ? 1 : -1) * (1.0 + Math.random() * 2.0);
+      g.speed = g.baseSpeed;
       g.setDepth(0);
       g.setVisible(false);
 
@@ -228,6 +285,21 @@ class GameScene extends Phaser.Scene {
       this.vehicles.forEach((v, i) => {
         v.setVisible(i < visibleVehicles);
       });
+    }
+  }
+
+  _createConfettiPool(W, H) {
+    this.confettiPool = [];
+    const confettiColors = [0xFFD700, 0xFF4444, 0x00FF88, 0x4A9EFF, 0xFF88AA];
+    for (let i = 0; i < 15; i++) {
+      const dot = this.add.graphics();
+      dot.fillStyle(confettiColors[i % confettiColors.length], 0.8);
+      dot.fillCircle(0, 0, 2);
+      dot.x = Phaser.Math.Between(0, W);
+      dot.y = Phaser.Math.Between(H * 0.2, H * 0.5);
+      dot.setVisible(false);
+      this.confettiPool.push(dot);
+      this.tweens.add({ targets: dot, y: dot.y + 30, alpha: 0, duration: 2000 + Math.random() * 1000, repeat: -1, yoyo: true });
     }
   }
 

@@ -4,13 +4,18 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+
+	"github.com/cities/game/internal/city"
 )
 
 // Message types sent to clients over WebSocket.
 const (
-	MsgHeartbeat  = "heartbeat"
-	MsgCityUpdate = "city_update"
-	MsgWorldEvent = "world_event"
+	MsgHeartbeat      = "heartbeat"
+	MsgCityUpdate     = "city_update"
+	MsgWorldEvent     = "world_event"
+	MsgEventFired     = "event_fired"
+	MsgEventResolved  = "event_resolved"
+	MsgChainTriggered = "chain_triggered"
 )
 
 // WSMessage is a generic WebSocket envelope.
@@ -111,6 +116,67 @@ func (b *Broadcaster) BroadcastWorldEvent(event WorldEvent) {
 		select {
 		case client.Send <- data:
 		default:
+		}
+	}
+}
+
+// BroadcastEvent sends a newly fired game event to the city's connected clients.
+func (b *Broadcaster) BroadcastEvent(cityID string, event city.GameEvent) {
+	msg := WSMessage{Type: MsgEventFired, Payload: event}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("[Broadcaster] Error marshaling event: %v", err)
+		return
+	}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	for _, client := range b.clients {
+		if client.CityID == cityID {
+			select {
+			case client.Send <- data:
+			default:
+				log.Printf("[Broadcaster] Client %s send buffer full — dropping event", client.PlayerID)
+			}
+		}
+	}
+}
+
+// BroadcastChainTriggered sends a chain-triggered event to the city's connected clients.
+func (b *Broadcaster) BroadcastChainTriggered(cityID string, event city.GameEvent, causedBy string) {
+	msg := WSMessage{Type: MsgChainTriggered, Payload: map[string]interface{}{"event": event, "caused_by": causedBy}}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("[Broadcaster] Error marshaling chain event: %v", err)
+		return
+	}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	for _, client := range b.clients {
+		if client.CityID == cityID {
+			select {
+			case client.Send <- data:
+			default:
+			}
+		}
+	}
+}
+
+// BroadcastEventResolved sends an event resolution notification to the city's connected clients.
+func (b *Broadcaster) BroadcastEventResolved(cityID string, eventID string, outcome string) {
+	msg := WSMessage{Type: MsgEventResolved, Payload: map[string]string{"event_id": eventID, "outcome": outcome}}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("[Broadcaster] Error marshaling event resolved: %v", err)
+		return
+	}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	for _, client := range b.clients {
+		if client.CityID == cityID {
+			select {
+			case client.Send <- data:
+			default:
+			}
 		}
 	}
 }

@@ -228,6 +228,32 @@
       border-color: #006666;
     }
 
+    .res-water {
+      color: #4488ff;
+      border-color: #224488;
+    }
+
+    .res-energy {
+      color: #ffcc00;
+      border-color: #886600;
+    }
+
+    .res-wood {
+      color: #cc8844;
+      border-color: #664422;
+    }
+
+    .res-knowledge {
+      color: #aa88ff;
+      border-color: #553399;
+    }
+
+    @keyframes resPulse {
+      0% { background: #2a3a2a; }
+      50% { background: #1a2a1a; }
+      100% { background: transparent; }
+    }
+
     @keyframes pulse {
 
       0%,
@@ -332,7 +358,7 @@
 
     #game-area {
       display: grid;
-      grid-template-columns: 1fr 200px 200px;
+      grid-template-columns: 1fr 200px 200px 200px;
       gap: 0;
       grid-row: 2;
     }
@@ -361,9 +387,53 @@
       max-height: 55vh;
     }
 
+    #factions-panel {
+      background: #0f0f1a;
+      border: 1px solid #333;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .faction-bar { margin-bottom: 10px; }
+    .faction-bar-fill {
+      height: 8px;
+      border-radius: 4px;
+      transition: width 0.5s ease, background 0.3s;
+    }
+    .faction-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      margin-bottom: 3px;
+    }
+    #decision-panel {
+      background: #0f0f1a;
+      border: 1px solid #333;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    #timeline-panel {
+      background: #0f0f1a;
+      border: 1px solid #333;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .urgency-bar {
+      height: 4px;
+      background: #333;
+      margin-top: 8px;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .urgency-bar-fill {
+      height: 100%;
+      background: #FF4444;
+      transition: width 0.3s;
+    }
+
     #trade-area {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 0;
       border-top: 1px solid #333;
       grid-row: 3;
@@ -378,6 +448,14 @@
     }
 
     #trade-market-panel {
+      border-left: 1px solid #333;
+    }
+
+    #political-panel {
+      padding: 12px;
+      overflow-y: auto;
+      background: #0f0f1a;
+      font-size: 0.8rem;
       border-left: 1px solid #333;
     }
 
@@ -414,12 +492,25 @@
         max-height: 150px;
       }
 
+      #factions-column {
+        grid-column: 1 / 2;
+        border-left: none;
+        border-top: 1px solid #333;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
       #trade-area {
         grid-template-columns: 1fr;
         grid-row: 3;
       }
 
       #trade-market-panel {
+        border-left: none;
+        border-top: 1px solid #333;
+      }
+
+      #political-panel {
         border-left: none;
         border-top: 1px solid #333;
       }
@@ -514,6 +605,13 @@
         <div class="panel-title">CITY NEEDS</div>
         <div id="needs-list"></div>
       </div>
+      <!-- Factions panel (200px) -->
+      <div id="factions-column" style="grid-column: 4 / 5; background: #0f0f1a; border-left: 1px solid #333; overflow-y: auto; padding: 12px; max-height: 55vh;">
+        <div id="factions-panel">
+          <div class="panel-title">FACCIONES</div>
+          <div id="factions-list"></div>
+        </div>
+      </div>
     </div>
 
     <!-- TRADE AREA (bottom, 1fr) with 2 columns -->
@@ -527,6 +625,17 @@
       <div id="trade-market-panel">
         <div class="panel-title">TRADE MARKET</div>
         <div id="market-orders-list"></div>
+      </div>
+      <!-- Political panel: decisions + timeline -->
+      <div id="political-panel">
+        <div id="decision-panel">
+          <div class="panel-title">DECISIONES</div>
+          <div id="decision-content"></div>
+        </div>
+        <div id="timeline-panel">
+          <div class="panel-title">HISTORIAL</div>
+          <div id="timeline-list"></div>
+        </div>
       </div>
     </div>
 

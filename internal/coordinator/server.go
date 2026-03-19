@@ -7,10 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/cities/game/internal/ai"
+	"github.com/cities/game/internal/city"
 	"github.com/cities/game/internal/trade"
 	"github.com/gorilla/websocket"
 )
@@ -69,12 +69,13 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	mux.HandleFunc("/api/trade/orders", s.handleTradeOrders)
 	mux.HandleFunc("/api/cities", s.handleCities)
 	mux.HandleFunc("/api/debug/heartbeat", s.handleDebugHeartbeat)
+	mux.HandleFunc("/api/event/decision", s.handleEventDecision)
 
 	// Static web client
 	mux.Handle("/", http.FileServer(http.Dir("./web")))
 
 	log.Printf("[Server] Listening on %s", addr)
-	return http.ListenAndServe(addr, mux)
+	return http.ListenAndServe(addr, corsMiddleware(mux))
 }
 
 // ─── WebSocket Handler ──────────────────────────────────────────────────────
@@ -340,6 +341,54 @@ func (s *Server) handleDebugHeartbeat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "heartbeat triggered"})
 }
 
+func (s *Server) handleEventDecision(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	var req struct {
+		CityID   string `json:"city_id"`
+		PlayerID string `json:"player_id"`
+		EventID  string `json:"event_id"`
+		OptionID string `json:"option_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	// Verify the requesting player owns the city
+	c, err := s.registry.GetCity(req.CityID)
+	if err != nil {
+		http.Error(w, "city not found", 404)
+		return
+	}
+	if c.MayorID != req.PlayerID {
+		http.Error(w, "not your city", 403)
+		return
+	}
+
+	var result *city.EventOption
+	round := s.ticker.CurrentRound()
+	err = s.registry.UpdateCity(req.CityID, func(c *city.City) {
+		for _, ae := range c.ActiveEvents {
+			if ae.ID == req.EventID {
+				result = ApplyEventOption(c, ae, req.OptionID, round)
+				break
+			}
+		}
+	})
+	if err != nil || result == nil {
+		http.Error(w, "event or option not found", 404)
+		return
+	}
+
+	s.broadcaster.BroadcastEventResolved(req.CityID, req.EventID, result.Title)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "choice": result.Title})
+}
+
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(v)
@@ -365,4 +414,3 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 var _ = fmt.Sprintf
-var _ = strconv.Itoa

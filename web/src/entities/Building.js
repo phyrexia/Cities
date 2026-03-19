@@ -26,7 +26,7 @@ class PixelBuilding {
    * @param {number} y
    * @param {number} scale - pixel scale multiplier
    */
-  static draw(scene, type, x, y, scale = 2) {
+  static draw(scene, type, x, y, scale = 2, pollutionLevel = 0) {
     const colors = BUILDING_COLORS[type] || BUILDING_COLORS.house;
     const g = scene.add.graphics();
 
@@ -45,7 +45,7 @@ class PixelBuilding {
         PixelBuilding._drawHospital(g, x, y, s, colors);
         break;
       case 'factory':
-        PixelBuilding._drawFactory(g, x, y, s, colors);
+        PixelBuilding._drawFactory(g, x, y, s, colors, pollutionLevel);
         break;
       case 'market':
         PixelBuilding._drawMarket(g, x, y, s, colors);
@@ -121,7 +121,7 @@ class PixelBuilding {
     g.fillRect(x + s * 0.5, y + s * 1.5, s * 3, s);
   }
 
-  static _drawFactory(g, x, y, s, c) {
+  static _drawFactory(g, x, y, s, c, pollutionLevel = 0) {
     // Main body
     g.fillStyle(c.wall);
     g.fillRect(x, y + s, s * 5, s * 3);
@@ -133,11 +133,11 @@ class PixelBuilding {
     g.fillRect(x + s, y - s, s * 0.6, s * 2);
     g.fillRect(x + s * 2.5, y - s * 0.5, s * 0.6, s * 1.5);
     g.fillRect(x + s * 3.5, y - s * 1.2, s * 0.6, s * 2.2);
-    // Smoke particles (static yellow-orange dots)
-    g.fillStyle(0xFF8800, 0.6);
-    g.fillCircle(x + s * 1.3, y - s * 1.2, s * 0.3);
-    g.fillStyle(0xFFAA00, 0.4);
-    g.fillCircle(x + s * 3.8, y - s * 1.5, s * 0.25);
+    // Smoke particles scaled by pollution
+    const smokeAlpha = Math.min(1.0, 0.3 + (pollutionLevel || 0) * 0.01);
+    g.fillStyle(0x888888, smokeAlpha);
+    g.fillCircle(x + s * 1.3, y - s * 1.5, s * 0.4 + pollutionLevel * 0.02);
+    g.fillCircle(x + s * 3.8, y - s * 1.8, s * 0.3 + pollutionLevel * 0.02);
     // Windows
     if (c.window) {
       g.fillStyle(c.window);
