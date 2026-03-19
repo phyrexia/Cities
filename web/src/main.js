@@ -15,36 +15,59 @@ let hudAnimations = {};
 
 // Internal resources that cities generate
 const INTERNAL_RESOURCES = {
-  'materials': { emoji: '📦', name: 'Materiales' },
-  'metal': { emoji: '⛓️', name: 'Metal' },
-  'food': { emoji: '🌾', name: 'Alimentos' },
-  'medicines': { emoji: '💊', name: 'Medicinas' }
+  'food': { emoji: '🌾', name: 'Alimentos', color: '#00ff00' },
+  'water': { emoji: '💧', name: 'Agua', color: '#4488ff' },
+  'wood': { emoji: '🪵', name: 'Madera', color: '#cc8844' },
+  'stone': { emoji: '🪨', name: 'Piedra', color: '#999999' },
+  'materials': { emoji: '📦', name: 'Materiales', color: '#cc8800' },
+  'metal': { emoji: '⛓️', name: 'Metal', color: '#aaaaaa' },
+  'energy': { emoji: '⚡', name: 'Energía', color: '#ffcc00' },
+  'medicines': { emoji: '💊', name: 'Medicinas', color: '#00ffff' },
+  'knowledge': { emoji: '📚', name: 'Conocimiento', color: '#aa88ff' },
 };
 
 // What products you can sell from each internal resource
 const SELLABLE_PRODUCTS = {
   'materials': [
     { id: 'wood', emoji: '🪵', name: 'Madera' },
-    { id: 'stone', emoji: '🪨', name: 'Piedra' }
+    { id: 'stone', emoji: '🪨', name: 'Piedra' },
+    { id: 'clay', emoji: '🏺', name: 'Arcilla' }
   ],
   'metal': [
     { id: 'iron', emoji: '⛓️', name: 'Hierro' },
-    { id: 'copper', emoji: '🥉', name: 'Cobre' }
+    { id: 'copper', emoji: '🥉', name: 'Cobre' },
+    { id: 'coal', emoji: '⛏️', name: 'Carbón' }
   ],
   'food': [
-    { id: 'grain', emoji: '🌾', name: 'Grano' }
+    { id: 'grain', emoji: '🌾', name: 'Grano' },
+    { id: 'fruit', emoji: '🍎', name: 'Frutas' },
+    { id: 'fish', emoji: '🐟', name: 'Pescado' }
+  ],
+  'water': [
+    { id: 'water', emoji: '💧', name: 'Agua Potable' }
+  ],
+  'wood': [
+    { id: 'wood', emoji: '🪵', name: 'Madera' }
   ],
   'medicines': [
-    { id: 'water', emoji: '💧', name: 'Agua Medicina' }
+    { id: 'medicine', emoji: '💊', name: 'Medicinas' }
+  ],
+  'energy': [
+    { id: 'energy', emoji: '⚡', name: 'Electricidad' }
   ]
 };
 
-// For backward compatibility
+// For backward compatibility (used in market rendering)
 const RESOURCE_CATALOG = [
+  { key: 'food', emoji: '🌾', name: 'Alimentos', tier: 1 },
+  { key: 'water', emoji: '💧', name: 'Agua', tier: 1 },
+  { key: 'wood', emoji: '🪵', name: 'Madera', tier: 1 },
+  { key: 'stone', emoji: '🪨', name: 'Piedra', tier: 1 },
   { key: 'materials', emoji: '📦', name: 'Materiales', tier: 1 },
   { key: 'metal', emoji: '⛓️', name: 'Metal', tier: 1 },
-  { key: 'food', emoji: '🌾', name: 'Alimentos', tier: 1 },
-  { key: 'medicines', emoji: '💊', name: 'Medicinas', tier: 1 }
+  { key: 'energy', emoji: '⚡', name: 'Energía', tier: 1 },
+  { key: 'medicines', emoji: '💊', name: 'Medicinas', tier: 1 },
+  { key: 'knowledge', emoji: '📚', name: 'Conocimiento', tier: 1 },
 ];
 
 let prevResources = {};
@@ -205,24 +228,82 @@ function initWebSocket() {
     })
     .on('city_update', (update) => {
       if (update && update.city) {
+        const oldProducts = gameState.city?.products || [];
+        const oldBuildings = gameState.city?.buildings || [];
         gameState.city = update.city;
-        console.log('[CITY_UPDATE] Resources received:', update.city.resources);
-        console.log('[CITY_UPDATE] Full city:', update.city);
         updateHUD(update.city);
         updateCityNeeds(update.city);
         updateMarketOrders();
         renderMyProducts(update.city.resources || {});
-        addLog(`City updated — pop: ${update.city.population?.total || 0}`, 'good');
-        if (update.events) {
+        renderFactions(update.city.factions);
+        renderActiveEvents(update.city.active_events);
+        renderTimeline(update.city.decision_history);
+
+        // Detect newly unlocked products
+        const newProducts = (update.city.products || []).filter(p => !oldProducts.includes(p));
+        newProducts.forEach(p => {
+          addLog(`🆕 Product unlocked: ${p}!`, 'important');
+        });
+
+        // Detect building upgrades
+        (update.city.buildings || []).forEach(b => {
+          const old = oldBuildings.find(ob => ob.id === b.id);
+          if (old && b.level > old.level) {
+            addLog(`⬆️ ${b.name} upgraded to Level ${b.level}!`, 'important');
+          }
+        });
+
+        // Population events
+        if (update.events && update.events.length > 0) {
           update.events.forEach(ev => {
-            addLog(`${ev.type}: ${ev.count} ${ev.group} — ${ev.reason}`);
+            const icon = ev.type === 'ARRIVED' ? '🟢' : ev.type === 'LEFT' ? '🔴' : ev.type === 'BORN' ? '👶' : ev.type === 'PROMOTED' ? '⬆️' : '•';
+            addLog(`${icon} ${ev.count} ${ev.group} — ${ev.reason}`);
           });
         }
       }
     })
     .on('world_event', (event) => {
       if (event) {
-        addLog(`[WORLD] ${event.description}`, 'important');
+        const isBad = event.type === 'MICRO_EVENT_BAD';
+        const isMicro = event.type === 'MICRO_EVENT' || isBad;
+        const cls = isBad ? 'bad' : isMicro ? 'good' : 'important';
+        const prefix = isMicro ? '' : '[WORLD] ';
+        addLog(`${prefix}${event.description}`, cls);
+
+        // Show micro events as floating notifications
+        if (isMicro && window.phaserGame) {
+          const scene = window.phaserGame.scene.getScene('GameScene');
+          if (scene && scene._showWorldEvent) {
+            scene._showWorldEvent(event.description);
+          }
+        }
+      }
+    })
+    .on('event_fired', function(data) {
+      if (data) {
+        addLog('⚠️ ' + data.title, 'important');
+        if (gameState.city) {
+          if (!gameState.city.active_events) gameState.city.active_events = [];
+          gameState.city.active_events.push(data);
+          renderActiveEvents(gameState.city.active_events);
+        }
+      }
+    })
+    .on('event_resolved', function(data) {
+      if (data && gameState.city) {
+        gameState.city.active_events = (gameState.city.active_events || []).filter(function(e) { return e.id !== data.event_id; });
+        renderActiveEvents(gameState.city.active_events);
+        addLog('✓ Evento resuelto: ' + data.outcome, 'good');
+      }
+    })
+    .on('chain_triggered', function(data) {
+      if (data && data.event) {
+        addLog('🔗 Consecuencia: ' + data.event.title, 'important');
+        if (gameState.city) {
+          if (!gameState.city.active_events) gameState.city.active_events = [];
+          gameState.city.active_events.push(data.event);
+          renderActiveEvents(gameState.city.active_events);
+        }
       }
     });
 
@@ -383,21 +464,32 @@ function updateResourcesPanel(resources) {
 
   let html = '';
 
-  // Show internal resources
+  // Show internal resources with production rate
   Object.entries(INTERNAL_RESOURCES).forEach(([key, display]) => {
     const qty = resources[key] || 0;
     const prev = prevResources[key] || 0;
-    const delta = renderDelta(qty, prev);
-    const isChanged = qty !== prev;
+    const diff = qty - prev;
+    const isChanged = diff !== 0;
 
-    const highlight = isChanged ? 'background: #2a2a3a; padding: 2px 4px; border-radius: 2px; font-weight: bold;' : '';
-    const textColor = isChanged && qty > prev ? '#00FF88' : isChanged && qty < prev ? '#FF4444' : '#FFD700';
+    const barWidth = Math.min(100, Math.max(0, qty / 5)); // visual bar
+    const barColor = display.color || '#FFD700';
+
+    const rateText = isChanged ? (diff > 0 ? `+${diff}` : `${diff}`) : '';
+    const rateColor = diff > 0 ? '#00FF88' : diff < 0 ? '#FF4444' : '#666';
+    const highlight = isChanged ? 'animation: resPulse 0.8s ease-out;' : '';
 
     html += `
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; margin-bottom: 10px;">
-        <span style="flex: 1;">${display.emoji} ${display.name}</span>
-        <span style="color: ${textColor}; ${highlight}">${qty}</span>
-        <span style="color: #666; margin-left: 6px;">${delta}</span>
+      <div style="margin-bottom: 8px; ${highlight}">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
+          <span style="color: #ccc;">${display.emoji} ${display.name}</span>
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span style="color: ${barColor}; font-weight: bold; font-size: 1rem;">${qty}</span>
+            ${rateText ? `<span style="color: ${rateColor}; font-size: 0.75rem; font-weight: bold;">${rateText}/t</span>` : ''}
+          </span>
+        </div>
+        <div style="height: 3px; background: #222; margin-top: 3px; border-radius: 2px; overflow: hidden;">
+          <div style="height: 100%; width: ${barWidth}%; background: ${barColor}; opacity: 0.6; transition: width 0.5s ease;"></div>
+        </div>
       </div>
     `;
 
@@ -490,6 +582,24 @@ function updateCityNeeds(city) {
         <div style="font-size: 0.7rem; color: #666;">Tech index</div>
       </div>
 
+      <div style="margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Products:</span>
+          <span style="color: #FFD700;">${(city.products || []).length}</span>
+        </div>
+        <div style="font-size: 0.7rem; color: #666;">Items unlocked</div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Buildings:</span>
+          <span style="color: #4A9EFF;">${buildings}</span>
+        </div>
+        <div style="font-size: 0.65rem; color: #555; line-height: 1.4; margin-top: 2px;">
+          ${(city.buildings || []).map(b => `${b.name} Lv.${b.level}`).join('<br>')}
+        </div>
+      </div>
+
       <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #333; font-size: 0.7rem; color: #666; line-height: 1.6;">
         <div>🔴 Critical &lt;30%</div>
         <div>🟡 Warning 30-60%</div>
@@ -538,15 +648,19 @@ function updateHUD(city) {
   document.getElementById('hud-tax').textContent = (city.tax_rate || 0).toFixed(1) + '%';
   document.getElementById('hud-round').textContent = city.round || '0';
 
-  // Resources (existing)
+  // Resources HUD — show key resources compactly
   const res = city.resources || {};
   const resContainer = document.getElementById('hud-resources');
-  resContainer.innerHTML = `
-    <span class="resource-badge res-food">FOOD: ${res.food || 0}</span>
-    <span class="resource-badge res-metal">METAL: ${res.metal || 0}</span>
-    <span class="resource-badge res-materials">MATS: ${res.materials || 0}</span>
-    ${res.medicines ? `<span class="resource-badge res-medicines">MEDS: ${res.medicines}</span>` : ''}
-  `;
+  const hudResources = [
+    { key: 'food', label: 'FOOD', cls: 'res-food' },
+    { key: 'water', label: 'H2O', cls: 'res-water' },
+    { key: 'materials', label: 'MATS', cls: 'res-materials' },
+    { key: 'metal', label: 'METAL', cls: 'res-metal' },
+    { key: 'energy', label: 'NRG', cls: 'res-energy' },
+  ];
+  resContainer.innerHTML = hudResources.map(r =>
+    `<span class="resource-badge ${r.cls}">${r.label}: ${res[r.key] || 0}</span>`
+  ).join('');
 
   // Update prevCity for next delta calculation
   prevCity = city;
@@ -642,7 +756,6 @@ function buyOrder(orderId, product, quantity, price) {
 // ─── Task 12: My Products Panel ───────────────────────────────────────────────
 
 const PRODUCT_BASE_PRICES = {
-  // Map from sellAs product IDs to base prices
   'wood': 22,
   'stone': 18,
   'iron': 48,
@@ -652,7 +765,13 @@ const PRODUCT_BASE_PRICES = {
   'grain': 13,
   'oil': 80,
   'wool': 32,
-  'rubber': 40
+  'rubber': 40,
+  'coal': 28,
+  'clay': 13,
+  'fish': 16,
+  'fruit': 16,
+  'medicine': 150,
+  'energy': 65,
 };
 
 function calculateSuggestedPrice(product, stock) {
@@ -731,6 +850,124 @@ function sellProduct(productId, productName, maxStock, suggestedPrice) {
     .catch(err => {
       addLog(`Error placing sell order: ${err.message}`, 'bad');
     });
+}
+
+// ─── Task 6: Political Simulator — Factions, Events, Timeline ────────────────
+
+const FACTIONS = {
+  workers:  { name: 'Trabajadores', color: '#4A9EFF', emoji: { angry: '😡', uneasy: '😟', content: '🙂', happy: '😄' }},
+  business: { name: 'Empresarios',  color: '#FFD700', emoji: { angry: '😡', uneasy: '😟', content: '🙂', happy: '😄' }},
+  families: { name: 'Familias',     color: '#00FF88', emoji: { angry: '😡', uneasy: '😟', content: '🙂', happy: '😄' }},
+  greens:   { name: 'Ecologistas',  color: '#88FF88', emoji: { angry: '😡', uneasy: '😟', content: '🙂', happy: '😄' }},
+};
+
+function renderFactions(factions) {
+  const panel = document.getElementById('factions-list');
+  if (!panel || !factions) return;
+
+  let html = '';
+  for (const [key, display] of Object.entries(FACTIONS)) {
+    if (key === 'greens' && !factions.greens_active) continue;
+    const val = factions[key] || 50;
+    const emoji = val < 25 ? display.emoji.angry : val < 50 ? display.emoji.uneasy : val < 75 ? display.emoji.content : display.emoji.happy;
+    const barColor = val < 25 ? '#FF4444' : val < 50 ? '#FFD700' : display.color;
+
+    html += `
+      <div class="faction-bar">
+        <div class="faction-bar-label">
+          <span style="color: ${display.color}">${emoji} ${display.name}</span>
+          <span style="color: ${barColor}; font-weight: bold;">${val}%</span>
+        </div>
+        <div style="height: 8px; background: #222; border-radius: 4px; overflow: hidden;">
+          <div class="faction-bar-fill" style="width: ${val}%; background: ${barColor};"></div>
+        </div>
+      </div>
+    `;
+  }
+  panel.innerHTML = html;
+}
+
+function formatFactionImpact(deltas) {
+  if (!deltas) return '';
+  return Object.entries(deltas).map(([k, v]) => {
+    const sign = v > 0 ? '+' : '';
+    const color = v > 0 ? '#00FF88' : '#FF4444';
+    const icon = k === 'workers' ? '👷' : k === 'business' ? '💼' : k === 'families' ? '👨‍👩‍👧' : '🌱';
+    return `<span style="color: ${color}">${icon}${sign}${v}</span>`;
+  }).join(' ');
+}
+
+function renderActiveEvents(events) {
+  const panel = document.getElementById('decision-content');
+  if (!panel) return;
+
+  if (!events || events.length === 0) {
+    panel.innerHTML = '<div style="color: #555; padding: 10px; text-align: center; font-size: 0.75rem;">Esperando siguiente turno...</div>';
+    return;
+  }
+
+  let html = '';
+  events.forEach(event => {
+    const urgencyPct = (event.urgency / 5) * 100;
+    html += `
+      <div style="border: 1px solid #FFD700; padding: 12px; margin-bottom: 10px; background: #1a1a0a;">
+        <div style="color: #FFD700; font-weight: bold; font-size: 0.85rem;">${event.title}</div>
+        <div style="color: #aaa; font-size: 0.75rem; margin: 6px 0;">${event.description}</div>
+        <div class="urgency-bar"><div class="urgency-bar-fill" style="width: ${urgencyPct}%"></div></div>
+        <div style="font-size: 0.65rem; color: #FF4444; margin-top: 2px;">${event.urgency} turnos restantes</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+          ${event.options.map(opt => `
+            <button class="pixel-btn" style="padding: 6px 10px; font-size: 0.7rem; flex: 1; min-width: 100px;"
+              onclick="submitEventDecision('${event.id}', '${opt.id}')">
+              <div>${opt.title}</div>
+              <div style="font-size: 0.6rem; color: #888; font-weight: normal;">${formatFactionImpact(opt.faction_deltas)}</div>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  panel.innerHTML = html;
+}
+
+window.submitEventDecision = async function submitEventDecision(eventId, optionId) {
+  try {
+    const resp = await fetch('/api/event/decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city_id: gameState.cityID, event_id: eventId, option_id: optionId })
+    });
+    if (resp.ok) {
+      addLog('Decisión de evento tomada', 'good');
+    }
+  } catch (err) {
+    addLog('Error: ' + err.message, 'bad');
+  }
+};
+
+function renderTimeline(history) {
+  const panel = document.getElementById('timeline-list');
+  if (!panel) return;
+  if (!history || history.length === 0) {
+    panel.innerHTML = '<div style="color: #555; font-size: 0.75rem; padding: 10px;">Sin decisiones aún</div>';
+    return;
+  }
+
+  let html = '';
+  history.slice().reverse().forEach(record => {
+    const pendingIcon = record.has_pending ? '⏳' : '✓';
+    html += `
+      <div style="font-size: 0.7rem; padding: 6px 0; border-bottom: 1px solid #222; color: #aaa;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #FFD700;">R${record.round}</span>
+          <span>${pendingIcon}</span>
+        </div>
+        <div style="color: #ccc;">${record.event_title}</div>
+        <div style="color: #4A9EFF;">→ ${record.choice_title}</div>
+      </div>
+    `;
+  });
+  panel.innerHTML = html;
 }
 
 function addLog(text, className = '') {
