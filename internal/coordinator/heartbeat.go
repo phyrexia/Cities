@@ -196,7 +196,6 @@ func (t *Ticker) runHeartbeat(ctx context.Context) {
 
 	// Compute world state snapshot for asymmetric events
 	worldState := ComputeWorldState(cities, round)
-	_ = worldState // used by event engine in Task 4
 
 	// Phase 2: Process each city
 	numCities := len(cities)

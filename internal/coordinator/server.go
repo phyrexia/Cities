@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/cities/game/internal/ai"
@@ -76,7 +75,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	mux.Handle("/", http.FileServer(http.Dir("./web")))
 
 	log.Printf("[Server] Listening on %s", addr)
-	return http.ListenAndServe(addr, mux)
+	return http.ListenAndServe(addr, corsMiddleware(mux))
 }
 
 // ─── WebSocket Handler ──────────────────────────────────────────────────────
@@ -349,6 +348,7 @@ func (s *Server) handleEventDecision(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		CityID   string `json:"city_id"`
+		PlayerID string `json:"player_id"`
 		EventID  string `json:"event_id"`
 		OptionID string `json:"option_id"`
 	}
@@ -357,9 +357,20 @@ func (s *Server) handleEventDecision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Verify the requesting player owns the city
+	c, err := s.registry.GetCity(req.CityID)
+	if err != nil {
+		http.Error(w, "city not found", 404)
+		return
+	}
+	if c.MayorID != req.PlayerID {
+		http.Error(w, "not your city", 403)
+		return
+	}
+
 	var result *city.EventOption
 	round := s.ticker.CurrentRound()
-	err := s.registry.UpdateCity(req.CityID, func(c *city.City) {
+	err = s.registry.UpdateCity(req.CityID, func(c *city.City) {
 		for _, ae := range c.ActiveEvents {
 			if ae.ID == req.EventID {
 				result = ApplyEventOption(c, ae, req.OptionID, round)
@@ -403,4 +414,3 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 var _ = fmt.Sprintf
-var _ = strconv.Itoa

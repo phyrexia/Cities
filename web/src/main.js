@@ -935,10 +935,12 @@ window.submitEventDecision = async function submitEventDecision(eventId, optionI
     const resp = await fetch('/api/event/decision', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ city_id: gameState.cityID, event_id: eventId, option_id: optionId })
+      body: JSON.stringify({ city_id: gameState.cityID, player_id: gameState.playerID, event_id: eventId, option_id: optionId })
     });
     if (resp.ok) {
       addLog('Decisión de evento tomada', 'good');
+    } else {
+      addLog('Error al enviar decisión: ' + resp.statusText, 'bad');
     }
   } catch (err) {
     addLog('Error: ' + err.message, 'bad');
