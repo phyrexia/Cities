@@ -222,8 +222,13 @@ func (t *Ticker) runHeartbeat(ctx context.Context) {
 		t.broadcaster.BroadcastCityUpdate(results[i])
 	}
 
-	// Phase 4: Generate new heartbeats for next round
+	// Phase 4: Generate new heartbeats for next round (suppressed if events active)
 	for _, c := range cities {
+		currentCity, _ := t.registry.GetCity(c.ID)
+		if currentCity != nil && len(currentCity.ActiveEvents) > 0 {
+			log.Printf("[Heartbeat] Skipping initiative proposals for %s — %d active events", c.Name, len(currentCity.ActiveEvents))
+			continue
+		}
 		t.generateHeartbeat(ctx, c, cities, round)
 	}
 
@@ -334,6 +339,53 @@ func (t *Ticker) processCity(ctx context.Context, c *city.City, allCities []*cit
 			CityID:      c.ID,
 			CityName:    c.Name,
 		})
+	}
+
+	// Event engine: urgency countdown + chain firing + new event triggers
+	var eventAutoResolved []string
+	var eventChainsFired []city.GameEvent
+	var eventChainCauses []string
+	var eventNewFired []city.GameEvent
+
+	_ = t.registry.UpdateCity(c.ID, func(cty *city.City) {
+		// Tick urgency on active events (auto-resolve expired)
+		eventAutoResolved = TickEventUrgency(cty, round)
+
+		// Fire pending chains
+		chainsFired, causes := FirePendingChains(cty, round)
+		for i, ce := range chainsFired {
+			if len(cty.ActiveEvents) < 2 {
+				cty.ActiveEvents = append(cty.ActiveEvents, ce)
+				eventChainsFired = append(eventChainsFired, ce)
+				if i < len(causes) {
+					eventChainCauses = append(eventChainCauses, causes[i])
+				}
+			}
+		}
+
+		// Evaluate new event triggers
+		newEvents := EvaluateEventTriggers(cty, worldState, round)
+		for _, ne := range newEvents {
+			cty.ActiveEvents = append(cty.ActiveEvents, ne)
+			eventNewFired = append(eventNewFired, ne)
+		}
+	})
+
+	// Broadcast outside the registry lock
+	for _, title := range eventAutoResolved {
+		log.Printf("[Events] Auto-resolved expired event: %s in %s", title, c.Name)
+	}
+	for i, ce := range eventChainsFired {
+		cause := ce.Description
+		if i < len(eventChainCauses) {
+			cause = eventChainCauses[i]
+		}
+		t.broadcaster.BroadcastChainTriggered(c.ID, ce, cause)
+		log.Printf("[Events] Chain event fired: %s in %s", ce.Title, c.Name)
+	}
+	for _, ne := range eventNewFired {
+		t.broadcaster.BroadcastEvent(c.ID, ne)
+		log.Printf("[Events] New event fired: %s in %s", ne.Title, c.Name)
 	}
 
 	// Get updated city state
