@@ -129,6 +129,7 @@ Each initiative must have this exact structure:
       "jobs_delta": 50,
       "new_products": [],
       "new_buildings": ["affordable_housing"],
+      "faction_deltas": {"workers": 5, "business": -3, "families": 2, "greens": 0}, // political impact on each faction (-20 to +20)
       "description": "Short summary of the effect"
     },
     "duration": 3
@@ -191,13 +192,14 @@ func parseInitiatives(raw string) ([]Initiative, error) {
 		Cost        int64          `json:"cost"`
 		Duration    int            `json:"duration"`
 		Effects     struct {
-			PopulationDelta int      `json:"population_delta"`
-			HappinessDelta  float64  `json:"happiness_delta"`
-			TreasuryDelta   int64    `json:"treasury_delta"`
-			JobsDelta       int      `json:"jobs_delta"`
-			NewProducts     []string `json:"new_products"`
-			NewBuildings    []string `json:"new_buildings"`
-			Description     string   `json:"description"`
+			PopulationDelta int            `json:"population_delta"`
+			HappinessDelta  float64        `json:"happiness_delta"`
+			TreasuryDelta   int64          `json:"treasury_delta"`
+			JobsDelta       int            `json:"jobs_delta"`
+			NewProducts     []string       `json:"new_products"`
+			NewBuildings    []string       `json:"new_buildings"`
+			FactionDeltas   map[string]int `json:"faction_deltas"`
+			Description     string         `json:"description"`
 		} `json:"effects"`
 	}
 
@@ -230,6 +232,7 @@ func parseInitiatives(raw string) ([]Initiative, error) {
 				JobsDelta:       ri.Effects.JobsDelta,
 				NewProducts:     ri.Effects.NewProducts,
 				NewBuildings:    buildings,
+				FactionDeltas:   ri.Effects.FactionDeltas,
 				Description:     ri.Effects.Description,
 			},
 		})

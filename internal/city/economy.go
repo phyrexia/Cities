@@ -48,8 +48,6 @@ func (ee *EconomyEngine) Tick(c *City) {
 		c.Stats.UnemploymentRate = clamp(unemployed*100/workingPop, 0, 100)
 	}
 
-	// Happiness adjustments
-	c.updateHappiness()
 }
 
 func (ee *EconomyEngine) produceResources(c *City) {
@@ -57,65 +55,92 @@ func (ee *EconomyEngine) produceResources(c *City) {
 		c.Resources = make(map[string]int)
 	}
 
+	// ─── Building-based production ──────────────────────────────────────
 	for _, b := range c.Buildings {
+		lvl := b.Level
+		if lvl < 1 {
+			lvl = 1
+		}
 		switch b.Type {
 		case BuildingFactory:
-			c.Resources["materials"] += 10 + (b.Level * 5)
-			c.Resources["metal"] += 5 + (b.Level * 2)
+			c.Resources["materials"] += 10 + (lvl * 5)
+			c.Resources["metal"] += 5 + (lvl * 2)
+			c.Resources["stone"] += 3 + lvl
 		case BuildingMarket:
-			c.Resources["food"] += 15 + (b.Level * 3)
+			c.Resources["food"] += 15 + (lvl * 3)
+			c.Resources["wood"] += 5 + lvl // trade brings timber
 		case BuildingLab:
-			c.Resources["medicines"] += 2 + b.Level
+			c.Resources["medicines"] += 2 + lvl
+			c.Resources["knowledge"] += 3 + (lvl * 2)
+		case BuildingHospital:
+			c.Resources["medicines"] += 1 + lvl
+		case BuildingSchool:
+			c.Resources["knowledge"] += 2 + lvl
+		case BuildingUniversity:
+			c.Resources["knowledge"] += 5 + (lvl * 3)
+		case BuildingPort:
+			// Ports generate diverse resources via imports
+			c.Resources["food"] += 5 + lvl
+			c.Resources["materials"] += 3 + lvl
+			c.Resources["wood"] += 4 + lvl
+		case BuildingWaterTreatment:
+			c.Resources["water"] += 20 + (lvl * 8)
+		case BuildingPowerPlant:
+			c.Resources["energy"] += 15 + (lvl * 5)
+		case BuildingPark:
+			// Parks produce small amount of food (community gardens)
+			c.Resources["food"] += 2
 		}
 	}
 
-	// Consumption
-	c.Resources["food"] -= c.Population.Total / 50
+	// ─── Passive production from population activity ────────────────────
+	// Citizens naturally gather basic resources
+	pop := c.Population.Total
+	if pop > 0 {
+		c.Resources["wood"] += pop / 200   // foraging
+		c.Resources["stone"] += pop / 300  // quarrying
+		c.Resources["water"] += pop / 150  // wells
+		c.Resources["food"] += pop / 250   // subsistence farming
+	}
+
+	// Entrepreneurs generate energy/materials passively
+	if c.Population.Entrepreneurs > 10 {
+		c.Resources["materials"] += c.Population.Entrepreneurs / 20
+		c.Resources["energy"] += c.Population.Entrepreneurs / 30
+	}
+
+	// ─── Consumption ────────────────────────────────────────────────────
+	foodConsumed := pop / 40 // slightly higher consumption for tension
+	c.Resources["food"] -= foodConsumed
 	if c.Resources["food"] < 0 {
 		c.Resources["food"] = 0
-		c.Happiness -= 2 // Hunger penalty
-	}
-}
-
-// updateHappiness recalculates the happiness index based on city conditions.
-func (c *City) updateHappiness() {
-	h := c.Happiness
-
-	// Treasury health
-	if c.Treasury < 0 {
-		h -= 5
-	} else if c.Treasury > 50000 {
-		h += 1
 	}
 
-	// Unemployment
-	if c.Stats.UnemploymentRate > 30 {
-		h -= float64(c.Stats.UnemploymentRate-30) * 0.3
+	// Water consumption
+	waterConsumed := pop / 80
+	c.Resources["water"] -= waterConsumed
+	if c.Resources["water"] < 0 {
+		c.Resources["water"] = 0
 	}
 
-	// Crime
-	if c.Stats.CrimeRate > 40 {
-		h -= float64(c.Stats.CrimeRate-40) * 0.2
+	// Energy consumption (from buildings)
+	energyConsumed := len(c.Buildings) * 2
+	c.Resources["energy"] -= energyConsumed
+	if c.Resources["energy"] < 0 {
+		c.Resources["energy"] = 0
+		// No penalty, just lack of bonus
 	}
 
-	// Education
-	h += float64(c.Stats.EducationLevel) * 0.1
-
-	// Health
-	h += float64(c.Stats.HealthLevel) * 0.1
-
-	// Housing shortage
-	if c.Population.Total > c.TotalHousingCapacity() {
-		shortage := c.Population.Total - c.TotalHousingCapacity()
-		h -= float64(shortage) * 0.01
+	// ─── Resource bonuses ───────────────────────────────────────────────
+	// Having energy → productivity bonus (extra materials)
+	if c.Resources["energy"] > 10 {
+		c.Resources["materials"] += 3
+		c.Resources["metal"] += 1
 	}
-
-	// Tax penalty
-	if c.TaxRate > 30 {
-		h -= (c.TaxRate - 30) * 0.5
+	// Knowledge drives innovation
+	if c.Resources["knowledge"] > 20 {
+		c.Stats.InnovationIndex = clamp(c.Stats.InnovationIndex+1, 0, 100)
 	}
-
-	c.Happiness = math.Max(0, math.Min(100, h))
 }
 
 // ApplyInitiativeEffects applies the effects of a chosen initiative.
@@ -140,6 +165,22 @@ func (c *City) ApplyInitiativeEffects(eff InitiativeEffects, round int) {
 			Level:    1,
 			Capacity: buildingDefaultCapacity(bType),
 		})
+	}
+
+	// Apply faction deltas
+	if eff.FactionDeltas != nil {
+		if d, ok := eff.FactionDeltas["workers"]; ok {
+			c.Factions.Workers = clampFaction(c.Factions.Workers + d)
+		}
+		if d, ok := eff.FactionDeltas["business"]; ok {
+			c.Factions.Business = clampFaction(c.Factions.Business + d)
+		}
+		if d, ok := eff.FactionDeltas["families"]; ok {
+			c.Factions.Families = clampFaction(c.Factions.Families + d)
+		}
+		if d, ok := eff.FactionDeltas["greens"]; ok && c.Factions.GreensActive {
+			c.Factions.Greens = clampFaction(c.Factions.Greens + d)
+		}
 	}
 
 	// Track active policy
@@ -178,6 +219,19 @@ func (c *City) UpdateStats() {
 	} else {
 		// Crime grows without police
 		c.Stats.CrimeRate = clamp(c.Stats.CrimeRate+2, 0, 100)
+	}
+
+	// Medicines improve health even without hospital
+	if c.Resources != nil && c.Resources["medicines"] > 5 {
+		c.Stats.HealthLevel = clamp(c.Stats.HealthLevel+1, 0, 100)
+	}
+	// Knowledge improves education passively
+	if c.Resources != nil && c.Resources["knowledge"] > 10 {
+		c.Stats.EducationLevel = clamp(c.Stats.EducationLevel+1, 0, 100)
+	}
+	// Water treatment improves health
+	if c.HasBuilding(BuildingWaterTreatment) {
+		c.Stats.HealthLevel = clamp(c.Stats.HealthLevel+2, 0, 100)
 	}
 }
 
@@ -281,6 +335,7 @@ type InitiativeEffects struct {
 	JobsDelta       int
 	NewProducts     []string
 	NewBuildings    []BuildingType
+	FactionDeltas   map[string]int `json:"faction_deltas,omitempty"`
 	Description     string
 }
 
@@ -338,8 +393,4 @@ func (c *City) UpdatePollution() {
 		}
 	}
 	c.Stats.PollutionLevel = clamp(pollution, 0, 100)
-	// Pollution reduces happiness
-	if c.Stats.PollutionLevel > 50 {
-		c.Happiness -= float64(c.Stats.PollutionLevel-50) * 0.05
-	}
 }
