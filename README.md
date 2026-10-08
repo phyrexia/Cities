@@ -1,64 +1,69 @@
-# 🏙️ Cities — Social Simulator
+# Cities — Social Simulator
 
-A hyper-dynamic 8-bit social simulator where you manage a city's growth, economy, and crises. Powered by **OpenRouter (Gemini 2.5)** for AI-driven political initiatives and social events.
+Simulador social 8-bit donde se gestiona el crecimiento, economía y crisis de una ciudad con IA. Cada 30 segundos, una IA (Gemini 2.5) genera iniciativas políticas únicas basadas en el estado actual de la ciudad.
 
-## 🚀 Features
+## Qué resuelve
 
-- **🧠 AI-Driven Governance**: Every 30 seconds, an AI council (Gemini 2.5) generates unique initiatives based on your city's current state (unemployment, happiness, resources).
-- **📦 Quantitative Resource System**: Track and manage **Food, Metal, Materials, and Medicines**.
-- **⚙️ Deep Economy Engine**: Factories produce materials, markets generate food, and labs develop medicines. Watch out for population consumption!
-- **🏚️ Ruins & Recovery**: Cities can collapse into ruins due to bankruptcy or mass emigration, but they can be reclaimed by new mayors.
-- **🌐 Real-time Web HUD**: A responsive Phaser.js client with a full-screen HUD and interactive proposal cards.
+Crear un juego simulador de ciudades donde una IA actúa como un consejo político dinámico, generando iniciativas de forma autónoma según el estado económico, desempleo, felicidad y recursos de la ciudad.
 
-## 🛠️ Tech Stack
+## Para quién
 
-- **Backend**: Go (Golang)
-- **Frontend**: Phaser.js (8-bit aesthetics)
-- **Database**: PostgreSQL
-- **Caching/PubSub**: Redis
-- **AI Integration**: OpenRouter API
-- **Infrastructure**: Docker & Docker Compose
+Jugadores interesados en simuladores de gestión urbana con economía compleja y toma de decisiones con IA.
 
-## 🏁 Getting Started
+## Características
 
-### Prerequisites
+- **Gobernanza con IA**: Consejo IA (Gemini 2.5) genera iniciativas únicas cada 30 segundos
+- **Sistema económico**: Fábricas producen materiales, mercados generan alimentos, laboratorios desarrollan medicinas
+- **Recursos cuantitativos**: Alimento, metal, materiales, medicinas
+- **Ruinas y recuperación**: Las ciudades pueden colapsar por quiebra o emigración, pero pueden ser recuperadas
+- **HUD en tiempo real**: Cliente Phaser.js responsive con propuestas interactivas
 
-- [Docker](https://www.docker.com/) & Docker Compose
-- [OpenRouter API Key](https://openrouter.ai/)
+## Cómo instalar
 
-### Setup
+Requisitos:
+- Go 1.18+
+- PostgreSQL 12+
+- Redis 6+
+- Docker Compose
 
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd Cities
-   ```
+```bash
+git clone <repo>
+cd Cities
+docker-compose up -d
+go mod download
+```
 
-2. **Configure Environment**:
-   Copy the example environment file and add your OpenRouter API key.
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` and set `OPENROUTER_API_KEY`.
+## Cómo correr
 
-3. **Launch the Game**:
-   ```bash
-   docker-compose up -d --build
-   ```
+```bash
+# Backend Go
+go run ./cmd/main.go
+```
 
-4. **Play**:
-   Open [http://localhost:8080](http://localhost:8080) in your browser.
+Acceso: `http://localhost:8080`
 
-## 🎮 Game Mechanics
+## Cómo probar
 
-- **Heartbeat**: Every 30 seconds, a "Heartbeat" occurs. You will receive 3-4 initiatives from the AI council.
-- **Initiatives**: Choose one initiative per heartbeat. Each has unique effects on population, happiness, treasury, and resources.
-- **Resources**:
-  - 🍞 **Food**: Consumed by population. Produced by Markets.
-  - 🏗️ **Materials**: Used for infrastructure. Produced by Factories.
-  - ⛓️ **Metal**: High-value trade resource. Produced by Factories.
-  - 💊 **Medicines**: Boosts health level. Produced by Research Labs.
+No hay tests automáticos documentados. Se prueba manualmente en el navegador.
 
-## 📄 License
+## Cómo desplegar
 
-MIT License. See [LICENSE](LICENSE) for details (if applicable).
+Docker Compose está configurado para levantar la stack completa. Revisar `docker-compose.yml` para configuración de producción.
+
+## Stack
+
+Go, Phaser.js, PostgreSQL, Redis, Docker
+
+## Estado
+
+En reposo
+
+Última actividad: 2026-03-19
+
+## Relacionado con
+
+OpenRouter, Gemini API
+
+## Notas
+
+Proyecto educativo/experimental de simulación urbana con IA. No tiene roadmap activo.
